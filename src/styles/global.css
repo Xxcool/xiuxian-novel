@@ -16,6 +16,7 @@
   --sans: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', system-ui,
     sans-serif;
   --reader-scale: 1;
+  --reader-line: 1.9;
   --dur-fast: 150ms;
   --dur-normal: 300ms;
 }
@@ -121,7 +122,7 @@ body {
 .reader-inner {
   font-family: var(--serif);
   font-size: calc(17px * var(--reader-scale));
-  line-height: 1.9;
+  line-height: var(--reader-line);
   color: var(--text);
 }
 .reader-inner h1 {

@@ -12,8 +12,8 @@ import EpubReader from '../components/EpubReader.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { isDark } = useTheme()
-const { scale } = useReaderSettings()
+const { themeKey } = useTheme()
+const { scale, lineHeight } = useReaderSettings()
 
 // slug 必须做成响应式：同一 Chapter 组件在章节间跳转时会被 Vue Router 复用，
 // 若用普通 const 捕获 route.params.slug，切换章节后内容/相邻章节不会更新（表现为“点了下一章没跳转”）
@@ -53,8 +53,9 @@ function onNavigate(slug) {
     <epub-reader
       :title="chapterTitle"
       :html="html"
-      :theme="isDark ? 'dark' : 'light'"
+      :theme-key="themeKey"
       :font-scale="scale"
+      :line-height="lineHeight"
       :next-slug="neighbor.next?.slug || ''"
       :prev-slug="neighbor.prev?.slug || ''"
       @progress="onProgress"

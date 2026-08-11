@@ -2,14 +2,13 @@
 import { computed } from 'vue'
 import { NConfigProvider, darkTheme } from 'naive-ui'
 import { useTheme } from './composables/useTheme'
-import { lightThemeOverrides, darkThemeOverrides } from './data/theme'
+import { getNavOverrides } from './data/theme'
 import AppNav from './components/AppNav.vue'
 
-const { isDark } = useTheme()
-const theme = computed(() => (isDark.value ? darkTheme : null))
-const themeOverrides = computed(() =>
-  isDark.value ? darkThemeOverrides : lightThemeOverrides
-)
+const { themeKey } = useTheme()
+// 夜间（night）用 Naive UI 暗色基线，其余 4 套用亮色基线 + 各自覆盖令牌
+const theme = computed(() => (themeKey.value === 'night' ? darkTheme : null))
+const themeOverrides = computed(() => getNavOverrides(themeKey.value))
 </script>
 
 <template>

@@ -2,13 +2,15 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import ePub from '@likecoin/epub-ts'
 import { buildEpub } from '../utils/epub-builder'
+import { getReaderTheme, THEME_LIST } from '../data/theme'
 
 const props = defineProps({
   title: { type: String, required: true },
   author: { type: String, default: '佚名' },
   html: { type: String, required: true },
-  theme: { type: String, default: 'light' }, // 'light' | 'dark'
+  themeKey: { type: String, default: 'sepia' }, // light | sepia | paper | green | night
   fontScale: { type: Number, default: 1 }, // 0.875 ~ 1.25
+  lineHeight: { type: Number, default: 1.9 }, // 1.6 ~ 2.3
   // 相邻章节 slug：到达本章末尾/开头时，翻页箭头与边界滑动会跳转到对应章节
   nextSlug: { type: String, default: '' },
   prevSlug: { type: String, default: '' },
@@ -25,22 +27,6 @@ let rendition = null
 let ro = null
 let initToken = 0
 let swipeCleanup = null
-
-// 昼夜主题经由 epub-ts themes 注入 iframe 内文，与外壳 Naive UI 配色一致
-const THEMES = {
-  light: {
-    body: { background: '#f4ece0', color: '#2b2620' },
-    h1: { color: '#9e3d26' },
-    h2: { color: '#9e3d26' },
-    a: { color: '#9e3d26' },
-  },
-  dark: {
-    body: { background: '#15120e', color: '#ddd2c2' },
-    h1: { color: '#d97757' },
-    h2: { color: '#d97757' },
-    a: { color: '#d97757' },
-  },
-}
 
 // 翻页箭头图标随边界变化：在末页且有下一章时显示「»」提示将跳下一章
 const nextLabel = computed(() => (atEnd.value && props.nextSlug ? '»' : '›'))
@@ -192,10 +178,16 @@ async function init() {
       allowScriptedContent: true,
     })
 
-    rendition.themes.register('light', THEMES.light)
-    rendition.themes.register('dark', THEMES.dark)
-    rendition.themes.select(props.theme)
-    if (props.fontScale) rendition.themes.fontSize(`${props.fontScale}rem`)
+    // 注册全部 5 套阅读器主题，按当前 themeKey 选择；字号/行高通过 override 动态注入
+    THEME_LIST.forEach((t) =>
+      rendition.themes.register(t.key, getReaderTheme(t.key))
+    )
+    rendition.themes.select(props.themeKey)
+    if (props.fontScale)
+      rendition.themes.override('font-size', `${props.fontScale}rem`)
+    if (props.lineHeight)
+      // 优先级 true：覆盖 epub-builder 内置 READER_CSS 里 body 的 line-height: 1.9
+      rendition.themes.override('line-height', String(props.lineHeight), true)
 
     await rendition.display()
     if (my !== initToken) return
@@ -250,17 +242,24 @@ watch(
 onBeforeUnmount(cleanup)
 
 watch(
-  () => props.theme,
-  (t) => {
+  () => props.themeKey,
+  (k) => {
     if (!rendition || error.value) return
-    rendition.themes.select(t)
+    rendition.themes.select(k)
   }
 )
 watch(
   () => props.fontScale,
   (s) => {
     if (!rendition || error.value) return
-    rendition.themes.fontSize(`${s}rem`)
+    rendition.themes.override('font-size', `${s}rem`)
+  }
+)
+watch(
+  () => props.lineHeight,
+  (l) => {
+    if (!rendition || error.value) return
+    rendition.themes.override('line-height', String(l), true)
   }
 )
 
@@ -277,7 +276,10 @@ defineExpose({ goNext, goPrev })
       v-if="error"
       class="reader-fallback reader-inner"
       v-html="html"
-      :style="{ fontSize: `calc(17px * ${fontScale})` }"
+      :style="{
+        fontSize: `calc(17px * ${fontScale})`,
+        lineHeight: String(lineHeight),
+      }"
     ></div>
 
     <div v-if="loading && !error" class="epub-loading">
@@ -316,6 +318,7 @@ defineExpose({ goNext, goPrev })
   width: 100%;
   height: 74vh;
   min-height: 480px;
+  background: var(--bg);
 }
 .epub-viewer {
   width: 100%;

@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 
-// 阅读区基础排版（字号由 epub-ts themes.fontSize 统一控制，这里只定版式）
+// 阅读区基础排版（字号/行高由 EpubReader 通过 epub-ts themes.override 动态控制，这里只定版式）
 const READER_CSS = `
 body {
   font-family: 'Songti SC','STSong','Noto Serif CJK SC','Source Han Serif SC','SimSun',serif;
