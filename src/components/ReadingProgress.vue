@@ -1,20 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-
-// 自定义组件：监听整页滚动，计算阅读进度（框架无等价物）
-const progress = ref(0)
-
-function onScroll() {
-  const el = document.documentElement
-  const max = el.scrollHeight - el.clientHeight
-  progress.value = max > 0 ? Math.min(100, (el.scrollTop / max) * 100) : 0
-}
-
-onMounted(() => {
-  window.addEventListener('scroll', onScroll, { passive: true })
-  onScroll()
+// 受控组件：进度由 EpubReader 的 relocated 事件传入（库级 CFI 定位）
+// 框架无等价物，故保留为自定义组件
+defineProps({
+  progress: { type: Number, default: 0 },
 })
-onUnmounted(() => window.removeEventListener('scroll', onScroll))
 </script>
 
 <template>

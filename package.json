@@ -12,8 +12,10 @@
   "dependencies": {
     "vue": "^3.4.0",
     "vue-router": "^4.3.0",
-    "markdown-it": "^14.1.0",
-    "naive-ui": "^2.38.0"
+    "naive-ui": "^2.38.0",
+    "marked": "^12.0.0",
+    "@likecoin/epub-ts": "^0.6.0",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
