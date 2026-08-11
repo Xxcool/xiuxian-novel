@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { getChapterRaw } from '../data/loader'
 import { getNeighbor } from '../data/chapters'
@@ -11,6 +11,7 @@ import ChapterNav from '../components/ChapterNav.vue'
 import EpubReader from '../components/EpubReader.vue'
 
 const route = useRoute()
+const router = useRouter()
 const { isDark } = useTheme()
 const { scale } = useReaderSettings()
 
@@ -38,6 +39,12 @@ const chapterTitle = computed(() => {
 function onProgress(p) {
   progress.value = p
 }
+
+// 阅读器在末页/首页边界请求跳转到相邻章节（由 EpubReader 的 goNext/goPrev 触发）
+function onNavigate(slug) {
+  if (!slug) return
+  router.push(`/chapter/${encodeURIComponent(slug)}`)
+}
 </script>
 
 <template>
@@ -48,7 +55,10 @@ function onProgress(p) {
       :html="html"
       :theme="isDark ? 'dark' : 'light'"
       :font-scale="scale"
+      :next-slug="neighbor.next?.slug || ''"
+      :prev-slug="neighbor.prev?.slug || ''"
       @progress="onProgress"
+      @navigate="onNavigate"
     />
     <chapter-nav :prev="neighbor.prev" :next="neighbor.next" />
   </article>

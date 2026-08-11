@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import ePub from '@likecoin/epub-ts'
 import { buildEpub } from '../utils/epub-builder'
 
@@ -9,16 +9,22 @@ const props = defineProps({
   html: { type: String, required: true },
   theme: { type: String, default: 'light' }, // 'light' | 'dark'
   fontScale: { type: Number, default: 1 }, // 0.875 ~ 1.25
+  // 相邻章节 slug：到达本章末尾/开头时，翻页箭头与边界滑动会跳转到对应章节
+  nextSlug: { type: String, default: '' },
+  prevSlug: { type: String, default: '' },
 })
-const emit = defineEmits(['progress', 'ready', 'error'])
+const emit = defineEmits(['progress', 'ready', 'error', 'navigate'])
 
 const viewer = ref(null)
 const loading = ref(true)
 const error = ref(null)
+const atEnd = ref(false) // 当前是否已到本章最后一页
+const atStart = ref(true) // 当前是否已到本章第一页
 let book = null
 let rendition = null
 let ro = null
 let initToken = 0
+let swipeCleanup = null
 
 // 昼夜主题经由 epub-ts themes 注入 iframe 内文，与外壳 Naive UI 配色一致
 const THEMES = {
@@ -36,14 +42,72 @@ const THEMES = {
   },
 }
 
+// 翻页箭头图标随边界变化：在末页且有下一章时显示「»」提示将跳下一章
+const nextLabel = computed(() => (atEnd.value && props.nextSlug ? '»' : '›'))
+const prevLabel = computed(() => (atStart.value && props.prevSlug ? '«' : '‹'))
+const nextDisabled = computed(() => error.value || (atEnd.value && !props.nextSlug))
+const prevDisabled = computed(() => error.value || (atStart.value && !props.prevSlug))
+
+// 统一的"往后翻"：未到末页→库内翻页；到末页且有下一章→跳下一章
+function goNext() {
+  if (error.value || !rendition) return
+  if (atEnd.value) {
+    if (props.nextSlug) emit('navigate', props.nextSlug)
+    return
+  }
+  rendition.next()
+}
+// 统一的"往前翻"：未到首页→库内翻页；到首页且有上一章→跳上一章
+function goPrev() {
+  if (error.value || !rendition) return
+  if (atStart.value) {
+    if (props.prevSlug) emit('navigate', props.prevSlug)
+    return
+  }
+  rendition.prev()
+}
+
 function onKey(e) {
   if (!rendition || error.value) return
   if (e.key === 'ArrowRight' || e.key === ' ') {
     e.preventDefault()
-    rendition.next()
+    goNext()
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault()
-    rendition.prev()
+    goPrev()
+  }
+}
+
+// 在 iframe 内文文档上监听横向滑动：仅在处于本章边界时触发跳章，
+// 章节内的滑动仍交给 epub-ts 自带的 Touch 管理器做仿真书吸附动画（不冲突）
+function setupSwipe() {
+  const iframe = viewer.value?.querySelector('iframe')
+  const doc = iframe?.contentDocument
+  if (!doc) return // 极少数情况下文档尚未就绪，由调用处的 rAF 重试
+  let x0 = 0
+  let y0 = 0
+  let t0 = 0
+  const onStart = (e) => {
+    const t = e.touches ? e.touches[0] : e
+    x0 = t.clientX
+    y0 = t.clientY
+    t0 = Date.now()
+  }
+  const onEnd = (e) => {
+    const t = e.changedTouches ? e.changedTouches[0] : e
+    const dx = t.clientX - x0
+    const dy = t.clientY - y0
+    const dt = Date.now() - t0
+    if (dt > 800) return
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
+    if (dx < 0 && atEnd.value && props.nextSlug) emit('navigate', props.nextSlug)
+    else if (dx > 0 && atStart.value && props.prevSlug) emit('navigate', props.prevSlug)
+  }
+  doc.addEventListener('touchstart', onStart, { passive: true })
+  doc.addEventListener('touchend', onEnd, { passive: true })
+  swipeCleanup = () => {
+    doc.removeEventListener('touchstart', onStart)
+    doc.removeEventListener('touchend', onEnd)
   }
 }
 
@@ -52,6 +116,8 @@ function cleanup() {
   window.removeEventListener('keydown', onKey)
   ro?.disconnect()
   ro = null
+  swipeCleanup?.()
+  swipeCleanup = null
   try {
     rendition?.destroy()
   } catch (e) {
@@ -76,6 +142,8 @@ async function init() {
     cleanup()
     error.value = null
     loading.value = true
+    atEnd.value = false
+    atStart.value = true
 
     const blob = await buildEpub({
       title: props.title,
@@ -111,14 +179,18 @@ async function init() {
     loading.value = false
     emit('ready')
 
-    // 阅读进度来自库自身的 relocated 事件（CFI 定位），非手写滚动计算
+    // 阅读进度 + 边界状态来自库自身的 relocated 事件（CFI 定位）
     rendition.on('relocated', (loc) => {
       const pct = loc?.start?.percentage
       if (typeof pct === 'number') emit('progress', Math.round(pct * 100))
+      // atEnd / atStart 由库直接给出；个别版本缺失时用整本百分比兜底
+      // （每章均为独立 EPUB，100% 即本章末页，0% 即首页）
+      atEnd.value = loc?.atEnd ?? (typeof pct === 'number' && pct >= 0.999)
+      atStart.value = loc?.atStart ?? (typeof pct === 'number' && pct <= 0.001)
     })
 
-    // 点击正文区域翻页：仅触发库的 next()，分页布局由库完成
-    rendition.on('click', () => rendition.next())
+    // 点击正文区域翻页：到末页则跳下一章（由 goNext 内部判断）
+    rendition.on('click', () => goNext())
 
     window.addEventListener('keydown', onKey)
     ro = new ResizeObserver(() => {
@@ -127,6 +199,13 @@ async function init() {
       }
     })
     ro.observe(viewer.value)
+
+    // iframe 文档就绪后挂载边界滑动监听（次帧重试一次以应对竞态）
+    requestAnimationFrame(() => {
+      if (my !== initToken) return
+      setupSwipe()
+      if (!swipeCleanup) requestAnimationFrame(setupSwipe)
+    })
   } catch (err) {
     if (my !== initToken) return
     console.error('[EpubReader] init failed:', err)
@@ -134,15 +213,6 @@ async function init() {
     loading.value = false
     emit('error', err)
   }
-}
-
-function next() {
-  if (error.value) return
-  rendition?.next()
-}
-function prev() {
-  if (error.value) return
-  rendition?.prev()
 }
 
 onMounted(init)
@@ -171,7 +241,7 @@ watch(
   }
 )
 
-defineExpose({ next, prev })
+defineExpose({ goNext, goPrev })
 </script>
 
 <template>
@@ -195,10 +265,24 @@ defineExpose({ next, prev })
       EPUB 阅读器加载失败，已切换为普通阅读模式
     </div>
 
-    <!-- 上一页 / 下一页：调用库的 prev()/next()，不手写翻页动画 -->
+    <!-- 上一页 / 下一页：在边界时跳转到相邻章节（图标随状态变化） -->
     <div class="epub-page-nav" :class="{ disabled: error }">
-      <button class="epub-page-btn" @click="prev" aria-label="上一页">‹</button>
-      <button class="epub-page-btn" @click="next" aria-label="下一页">›</button>
+      <button
+        class="epub-page-btn"
+        :disabled="prevDisabled"
+        @click="goPrev"
+        :aria-label="prevLabel === '«' ? '上一章' : '上一页'"
+      >
+        {{ prevLabel }}
+      </button>
+      <button
+        class="epub-page-btn"
+        :disabled="nextDisabled"
+        @click="goNext"
+        :aria-label="nextLabel === '»' ? '下一章' : '下一页'"
+      >
+        {{ nextLabel }}
+      </button>
     </div>
   </div>
 </template>
@@ -276,9 +360,13 @@ defineExpose({ next, prev })
   box-shadow: 0 2px 10px var(--shadow);
   transition: all 0.2s ease;
 }
-.epub-page-btn:hover {
+.epub-page-btn:hover:not(:disabled) {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+}
+.epub-page-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 </style>
