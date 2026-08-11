@@ -18,6 +18,7 @@ const error = ref(null)
 let book = null
 let rendition = null
 let ro = null
+let initToken = 0
 
 // 昼夜主题经由 epub-ts themes 注入 iframe 内文，与外壳 Naive UI 配色一致
 const THEMES = {
@@ -46,23 +47,58 @@ function onKey(e) {
   }
 }
 
-async function init() {
+// 彻底销毁旧实例，避免章节切换时多个 iframe / rendition 叠加
+function cleanup() {
+  window.removeEventListener('keydown', onKey)
+  ro?.disconnect()
+  ro = null
   try {
+    rendition?.destroy()
+  } catch (e) {
+    /* noop */
+  }
+  try {
+    book?.destroy?.()
+  } catch (e) {
+    /* noop */
+  }
+  rendition = null
+  book = null
+}
+
+async function init() {
+  const my = ++initToken
+  if (!props.html) {
+    loading.value = false
+    return
+  }
+  try {
+    cleanup()
+    error.value = null
+    loading.value = true
+
     const blob = await buildEpub({
       title: props.title,
       author: props.author,
       html: props.html,
     })
+    if (my !== initToken) return
     const buf = await blob.arrayBuffer()
+    if (my !== initToken) return
+
     book = ePub(buf)
     await book.ready
+    if (my !== initToken) return
 
     rendition = book.renderTo(viewer.value, {
       width: viewer.value.clientWidth || '100%',
       height: viewer.value.clientHeight || '100%',
       spread: 'none',
       flow: 'paginated',
-      allowScriptedContent: false,
+      // 开启 allow-scripts：epub-ts 会把内容渲染进 sandbox 的 srcdoc iframe，
+      // 其内部渲染/主题注入脚本需要 allow-scripts，否则浏览器拦截并报
+      // "Blocked script execution in 'about:srcdoc'"，翻页与主题也会失效
+      allowScriptedContent: true,
     })
 
     rendition.themes.register('light', THEMES.light)
@@ -71,6 +107,7 @@ async function init() {
     if (props.fontScale) rendition.themes.fontSize(`${props.fontScale}rem`)
 
     await rendition.display()
+    if (my !== initToken) return
     loading.value = false
     emit('ready')
 
@@ -91,6 +128,7 @@ async function init() {
     })
     ro.observe(viewer.value)
   } catch (err) {
+    if (my !== initToken) return
     console.error('[EpubReader] init failed:', err)
     error.value = err?.message || '阅读器加载失败'
     loading.value = false
@@ -108,20 +146,15 @@ function prev() {
 }
 
 onMounted(init)
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKey)
-  ro?.disconnect()
-  try {
-    rendition?.destroy()
-  } catch (e) {
-    /* noop */
+
+// 章节切换：Chapter.vue 传入的 html 变化 → 销毁旧阅读器并重建
+watch(
+  () => props.html,
+  () => {
+    init()
   }
-  try {
-    book?.destroy?.()
-  } catch (e) {
-    /* noop */
-  }
-})
+)
+onBeforeUnmount(cleanup)
 
 watch(
   () => props.theme,

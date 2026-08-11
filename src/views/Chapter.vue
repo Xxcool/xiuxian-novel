@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import { getChapterRaw } from '../data/loader'
@@ -14,19 +14,25 @@ const route = useRoute()
 const { isDark } = useTheme()
 const { scale } = useReaderSettings()
 
-const slug = decodeURIComponent(route.params.slug)
-const raw = getChapterRaw(slug)
-const neighbor = computed(() => getNeighbor(slug))
-const found = computed(() => !!raw)
+// slug 必须做成响应式：同一 Chapter 组件在章节间跳转时会被 Vue Router 复用，
+// 若用普通 const 捕获 route.params.slug，切换章节后内容/相邻章节不会更新（表现为“点了下一章没跳转”）
+const slug = computed(() => decodeURIComponent(route.params.slug))
+const raw = computed(() => getChapterRaw(slug.value))
+const neighbor = computed(() => getNeighbor(slug.value))
+const found = computed(() => !!raw.value)
 
 // 阅读进度由 EpubReader 的 relocated 事件驱动（库级定位），受控传给顶栏进度条
 const progress = ref(0)
+// 切换章节时进度归零，交由新阅读器重新上报
+watch(slug, () => {
+  progress.value = 0
+})
 
 // MD → HTML（marked），HTML 送入 EpubReader 包成 EPUB 由库渲染
-const html = computed(() => (raw ? marked.parse(raw) : ''))
+const html = computed(() => (raw.value ? marked.parse(raw.value) : ''))
 const chapterTitle = computed(() => {
-  const m = raw && raw.match(/^#\s+(.+)$/m)
-  return m ? m[1] : slug
+  const m = raw.value && raw.value.match(/^#\s+(.+)$/m)
+  return m ? m[1] : slug.value
 })
 
 function onProgress(p) {
