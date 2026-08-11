@@ -299,6 +299,31 @@ body {
 .chapter-card:hover .card-arrow {
   transform: translateX(4px);
 }
+.chapter-card.active {
+  position: relative;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.chapter-card.active .card-num,
+.chapter-card.active .card-title,
+.chapter-card.active .card-arrow {
+  color: var(--accent);
+}
+.chapter-card.active .card-arrow {
+  transform: translateX(4px);
+}
+.chapter-card.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--accent);
+}
 
 /* ============================================================
    未找到章节

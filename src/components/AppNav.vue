@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   NButton,
   NSwitch,
@@ -13,6 +13,7 @@ import { useTheme } from '../composables/useTheme'
 import { useReaderSettings, SCALE_LABELS } from '../composables/useReaderSettings'
 
 const router = useRouter()
+const route = useRoute()
 const { isDark, toggle } = useTheme()
 const { label, setScale } = useReaderSettings()
 const drawerOpen = ref(false)
@@ -24,7 +25,12 @@ const sizeOptions = Object.keys(SCALE_LABELS).map((k) => ({
 }))
 
 function goHome() {
-  router.push('/')
+  // 从阅读页回目录时携带当前章节 slug，使首页目录高亮该章
+  router.push(
+    route.params.slug
+      ? { path: '/', query: { chapter: route.params.slug } }
+      : '/'
+  )
 }
 </script>
 

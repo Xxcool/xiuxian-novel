@@ -1,8 +1,19 @@
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
 defineProps({
   prev: { type: Object, default: null },
   next: { type: Object, default: null },
 })
+
+// 从阅读页回目录时携带当前章节 slug，使首页目录高亮该章
+const route = useRoute()
+const homeLink = computed(() =>
+  route.params.slug
+    ? { path: '/', query: { chapter: route.params.slug } }
+    : '/'
+)
 </script>
 
 <template>
@@ -21,7 +32,7 @@ defineProps({
       <span class="nav-text">上一章</span>
     </span>
 
-    <router-link class="nav-btn center" to="/">
+    <router-link class="nav-btn center" :to="homeLink">
       <span class="nav-icon">☰</span>
       <span class="nav-text">目录</span>
     </router-link>
