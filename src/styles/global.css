@@ -253,13 +253,13 @@ body {
   font-weight: 600;
 }
 
-/* n-list 章节卡片：覆写框架默认内边距，交给 .chapter-card 控制视觉 */
+/* 章节列表：自定义 ul/li，保证间距与背景完全可控 */
 .chapter-list {
+  list-style: none;
   margin-top: 24px;
-}
-.chapter-list .n-list-item {
-  padding: 0 !important;
-  border-bottom: none !important;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .chapter-card {
   display: flex;
@@ -270,13 +270,15 @@ body {
   color: var(--text);
   border-radius: 10px;
   border: 1px solid var(--border);
+  background: var(--bg-elev);
   transition: transform var(--dur-fast) ease, background var(--dur-fast) ease,
-    border-color var(--dur-fast) ease;
+    border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 .chapter-card:hover {
   transform: translateX(6px);
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--bg-elev) 92%, var(--accent));
   border-color: var(--accent);
+  box-shadow: 0 4px 16px var(--shadow);
 }
 .chapter-card .card-num {
   color: var(--accent);
