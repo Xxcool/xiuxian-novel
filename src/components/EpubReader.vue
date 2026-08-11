@@ -78,12 +78,25 @@ function onKey(e) {
   }
 }
 
-// 在 iframe 内文文档上监听横向滑动：仅在处于本章边界时触发跳章，
-// 章节内的滑动仍交给 epub-ts 自带的 Touch 管理器做仿真书吸附动画（不冲突）
-function setupSwipe() {
+// 在 iframe 内文文档上：
+// 1) 点击左右半区翻页（仿真书交互：左半区上一页，右半区下一页）
+// 2) 仅在处于本章边界时，横向滑动触发跳章；章节内的滑动仍交给
+//    epub-ts 自带的 Touch 管理器做仿真书吸附动画（方向已被库内固化为
+//    左滑=下一页、右滑=上一页，无需我们处理）
+function setupInteractions() {
   const iframe = viewer.value?.querySelector('iframe')
   const doc = iframe?.contentDocument
   if (!doc) return // 极少数情况下文档尚未就绪，由调用处的 rAF 重试
+  const pageWidth = () => iframe.clientWidth || doc.documentElement.clientWidth
+
+  // 点击翻页：按 x 坐标分左右半区
+  const onClick = (e) => {
+    if (error.value || !rendition) return
+    if (e.clientX < pageWidth() / 2) goPrev()
+    else goNext()
+  }
+
+  // 边界滑动跳章
   let x0 = 0
   let y0 = 0
   let t0 = 0
@@ -100,12 +113,22 @@ function setupSwipe() {
     const dt = Date.now() - t0
     if (dt > 800) return
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
-    if (dx < 0 && atEnd.value && props.nextSlug) emit('navigate', props.nextSlug)
-    else if (dx > 0 && atStart.value && props.prevSlug) emit('navigate', props.prevSlug)
+    // epub-ts 内置 Touch 监听的是 iframe 外层容器，收不到 iframe 内 touch，
+    // 故章节内滑动由我们在此接管：左滑→下一页（末页跳下一章），
+    // 右滑→上一页（首页跳上一章），方向即仿真书手势
+    if (dx < 0) {
+      if (atEnd.value && props.nextSlug) emit('navigate', props.nextSlug)
+      else goNext()
+    } else if (dx > 0) {
+      if (atStart.value && props.prevSlug) emit('navigate', props.prevSlug)
+      else goPrev()
+    }
   }
+  doc.addEventListener('click', onClick, { passive: true })
   doc.addEventListener('touchstart', onStart, { passive: true })
   doc.addEventListener('touchend', onEnd, { passive: true })
   swipeCleanup = () => {
+    doc.removeEventListener('click', onClick)
     doc.removeEventListener('touchstart', onStart)
     doc.removeEventListener('touchend', onEnd)
   }
@@ -189,8 +212,8 @@ async function init() {
       atStart.value = loc?.atStart ?? (typeof pct === 'number' && pct <= 0.001)
     })
 
-    // 点击正文区域翻页：到末页则跳下一章（由 goNext 内部判断）
-    rendition.on('click', () => goNext())
+    // 点击正文翻页（左半区上一页 / 右半区下一页）由 contentDocument 的
+    // click 监听处理，见 setupInteractions()
 
     window.addEventListener('keydown', onKey)
     ro = new ResizeObserver(() => {
@@ -200,11 +223,11 @@ async function init() {
     })
     ro.observe(viewer.value)
 
-    // iframe 文档就绪后挂载边界滑动监听（次帧重试一次以应对竞态）
+    // iframe 文档就绪后挂载点击分屏翻页 + 边界滑动跳章（次帧重试一次以应对竞态）
     requestAnimationFrame(() => {
       if (my !== initToken) return
-      setupSwipe()
-      if (!swipeCleanup) requestAnimationFrame(setupSwipe)
+      setupInteractions()
+      if (!swipeCleanup) requestAnimationFrame(setupInteractions)
     })
   } catch (err) {
     if (my !== initToken) return
