@@ -64,28 +64,33 @@ function onKey(e) {
   }
 }
 
-// 在 iframe 内文文档上：
-// 1) 点击左右半区翻页（仿真书交互：左半区上一页，右半区下一页）
-// 2) 仅在处于本章边界时，横向滑动触发跳章；章节内的滑动仍交给
-//    epub-ts 自带的 Touch 管理器做仿真书吸附动画（方向已被库内固化为
-//    左滑=下一页、右滑=上一页，无需我们处理）
+// 在 iframe 内文文档上统一接管两种手势（移动端、桌面端都可用）：
+// 1) 点击 / 轻触：按 x 坐标分左右半区翻页（仿真书交互：左半区上一页，右半区下一页）
+// 2) 横向滑动：左滑→下一页（末页跳下一章）、右滑→上一页（首页跳上一章），方向即仿真书手势
+// 说明：epub-ts 内置 Touch 管理器监听的是 iframe 外层容器，收不到 iframe 内 touch，
+// 故章节内滑动必须自己在 contentDocument 上监听；点击翻页也直接在 touchend 判定，
+// 不依赖移动端合成的 click 事件（在 srcdoc + sandbox 的 iframe 内某些浏览器不可靠）。
 function setupInteractions() {
   const iframe = viewer.value?.querySelector('iframe')
   const doc = iframe?.contentDocument
   if (!doc) return // 极少数情况下文档尚未就绪，由调用处的 rAF 重试
   const pageWidth = () => iframe.clientWidth || doc.documentElement.clientWidth
-
-  // 点击翻页：按 x 坐标分左右半区
-  const onClick = (e) => {
-    if (error.value || !rendition) return
-    if (e.clientX < pageWidth() / 2) goPrev()
-    else goNext()
-  }
-
-  // 边界滑动跳章
   let x0 = 0
   let y0 = 0
   let t0 = 0
+  let lastTouchAction = 0 // 防触摸后合成 click 重复触发翻页
+
+  // 左半区上一页、右半区下一页
+  const handleTap = (x) => {
+    if (x < pageWidth() / 2) goPrev()
+    else goNext()
+  }
+  // 桌面端鼠标点击：按左右半区（触摸产生的动作后 500ms 内的合成 click 一律忽略）
+  const onClick = (e) => {
+    if (error.value || !rendition) return
+    if (Date.now() - lastTouchAction < 500) return
+    handleTap(e.clientX)
+  }
   const onStart = (e) => {
     const t = e.touches ? e.touches[0] : e
     x0 = t.clientX
@@ -93,22 +98,28 @@ function setupInteractions() {
     t0 = Date.now()
   }
   const onEnd = (e) => {
+    if (error.value || !rendition) return
     const t = e.changedTouches ? e.changedTouches[0] : e
     const dx = t.clientX - x0
     const dy = t.clientY - y0
     const dt = Date.now() - t0
     if (dt > 800) return
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
-    // epub-ts 内置 Touch 监听的是 iframe 外层容器，收不到 iframe 内 touch，
-    // 故章节内滑动由我们在此接管：左滑→下一页（末页跳下一章），
-    // 右滑→上一页（首页跳上一章），方向即仿真书手势
-    if (dx < 0) {
-      if (atEnd.value && props.nextSlug) emit('navigate', props.nextSlug)
-      else goNext()
-    } else if (dx > 0) {
-      if (atStart.value && props.prevSlug) emit('navigate', props.prevSlug)
-      else goPrev()
+    if (Math.abs(dx) >= 40 && Math.abs(dx) >= Math.abs(dy)) {
+      // 横向滑动 → 翻页 / 边界跳章
+      lastTouchAction = Date.now()
+      if (dx < 0) {
+        if (atEnd.value && props.nextSlug) emit('navigate', props.nextSlug)
+        else goNext()
+      } else {
+        if (atStart.value && props.prevSlug) emit('navigate', props.prevSlug)
+        else goPrev()
+      }
+    } else if (dt < 350) {
+      // 轻微位移 + 短时间 → 视为轻触（tap），按起始 x 分左右半区翻页
+      lastTouchAction = Date.now()
+      handleTap(x0)
     }
+    // 纵向滚动或长按不处理，避免误翻页 / 干扰文本选择
   }
   doc.addEventListener('click', onClick, { passive: true })
   doc.addEventListener('touchstart', onStart, { passive: true })
@@ -204,8 +215,8 @@ async function init() {
       atStart.value = loc?.atStart ?? (typeof pct === 'number' && pct <= 0.001)
     })
 
-    // 点击正文翻页（左半区上一页 / 右半区下一页）由 contentDocument 的
-    // click 监听处理，见 setupInteractions()
+    // 正文内的点击翻页与横向滑动翻页，统一在 contentDocument 上接管，
+    // 见 setupInteractions()（移动端轻触/滑动、桌面端点击均支持）
 
     window.addEventListener('keydown', onKey)
     ro = new ResizeObserver(() => {
