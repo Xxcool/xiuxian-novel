@@ -34,6 +34,30 @@ function escapeXml(s = '') {
     .replace(/"/g, '&quot;')
 }
 
+// HTML5 void 元素（不闭合），EPUB 的 chapter.xhtml 以严格 XML 解析，必须自闭合
+const VOID_TAGS = [
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img',
+  'input', 'link', 'meta', 'param', 'source', 'track', 'wbr',
+]
+
+// 把 marked 产出的 HTML5 片段规整为 XHTML，避免 XML 解析器报错
+// （对应 "Opening and ending tag mismatch: hr ... and body" 这类错误）
+function toXhtml(html = '') {
+  if (!html) return ''
+  // 1) void 元素自闭合：<hr> → <hr />、<br> → <br />、<img ...> → <img ... />
+  const voidRe = new RegExp(`<(${VOID_TAGS.join('|')})\\b([^>]*?)(/?)>`, 'gi')
+  let out = html.replace(voidRe, (m, tag, attrs, slash) => {
+    if (slash) return m // 已自闭合，保持原样
+    return `<${tag}${attrs} />`
+  })
+  // 2) 游离 & 转义（仅处理不是合法实体引用的 &），防止 XML 解析失败
+  out = out.replace(
+    /&(?!(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);)/g,
+    '&amp;'
+  )
+  return out
+}
+
 function uuid() {
   // RFC4122 v4
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -74,7 +98,7 @@ export async function buildEpub({ title, author = '佚名', html }) {
 <style>${READER_CSS}</style>
 </head>
 <body>
-${html}
+${toXhtml(html)}
 </body>
 </html>`
 
