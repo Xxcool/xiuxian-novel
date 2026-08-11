@@ -11,3 +11,7 @@ Thumbs.db
 # 本地构建临时文件
 build/
 .cache/
+
+# 依赖与构建产物（pnpm）
+node_modules/
+dist/
