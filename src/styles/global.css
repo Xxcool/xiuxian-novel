@@ -77,7 +77,31 @@ body {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+}
+/* 顶栏只保留两个图标按钮，移动端不再横向溢出、也不会与翻页手势冲突 */
+.nav-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nav-icon-btn:hover {
+  background: var(--bg-elev);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.nav-icon-btn:active {
+  transform: scale(0.94);
 }
 
 /* ============================================================
