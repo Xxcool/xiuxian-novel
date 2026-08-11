@@ -1,0 +1,13 @@
+# OS / 编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# 日志
+*.log
+
+# 本地构建临时文件
+build/
+.cache/
