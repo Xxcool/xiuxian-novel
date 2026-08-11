@@ -343,6 +343,12 @@ defineExpose({ goNext, goPrev })
   gap: 8px;
   z-index: 5;
 }
+/* 移动端已有滑动翻页 + 边界跳章，悬浮箭头会遮挡正文，故隐藏 */
+@media (max-width: 768px) {
+  .epub-page-nav {
+    display: none;
+  }
+}
 .epub-page-nav.disabled {
   opacity: 0.4;
   pointer-events: none;
