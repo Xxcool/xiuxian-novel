@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { getChapterRaw, prefetchChapters } from '../data/loader'
-import { getNeighbor } from '../data/chapters'
+import { chapters, getNeighbor } from '../data/chapters'
 import { useTheme } from '../composables/useTheme'
 import { useReaderSettings } from '../composables/useReaderSettings'
 import { useImmersive } from '../composables/useImmersive'
@@ -11,6 +11,7 @@ import { useReadingProgress } from '../composables/useReadingProgress'
 import ReadingProgress from '../components/ReadingProgress.vue'
 import ChapterNav from '../components/ChapterNav.vue'
 import EpubReader from '../components/EpubReader.vue'
+import ReaderSettings from '../components/ReaderSettings.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +24,7 @@ const { record, markRead } = useReadingProgress()
 // 若用普通 const 捕获 route.params.slug，切换章节后内容/相邻章节不会更新（表现为“点了下一章没跳转”）
 const slug = computed(() => decodeURIComponent(route.params.slug))
 const neighbor = computed(() => getNeighbor(slug.value))
+const currentChapter = computed(() => chapters.find((c) => c.slug === slug.value))
 
 // 章节正文按需加载（见 loader.js）：getChapterRaw 返回 Promise，
 // 这里存到 ref 并在 slug 变化时重新拉取；null 表示未就绪，'' 表示章节不存在。
@@ -60,13 +62,23 @@ watch(
 
 // 阅读进度由 EpubReader 的 relocated 事件驱动（库级定位），受控传给顶栏进度条
 const progress = ref(0)
+const pageLabel = ref('1 / 1')
+const readerRef = ref(null)
+const mobileSettingsOpen = ref(false)
 // 切换章节时进度归零，交由新阅读器重新上报
 watch(slug, () => {
   progress.value = 0
+  pageLabel.value = '1 / 1'
 })
 
-// MD → HTML（marked），HTML 送入 EpubReader 包成 EPUB 由库渲染
-const html = computed(() => (raw.value ? marked.parse(raw.value) : ''))
+// 所有章节顶部的概要、爽点、情绪曲线是创作提纲，不属于读者看到的正文。
+const html = computed(() => {
+  if (!raw.value) return ''
+  const divider = raw.value.indexOf('\n---\n')
+  const hasOutline = divider > 0 && raw.value.slice(0, divider).includes('**本章概要**')
+  const body = hasOutline ? raw.value.slice(divider + 5).trimStart() : raw.value
+  return marked.parse(body.replace(/^#\s+.+\n*/, '').trimStart())
+})
 const chapterTitle = computed(() => {
   const m = raw.value && raw.value.match(/^#\s+(.+)$/m)
   return m ? m[1] : slug.value
@@ -76,6 +88,9 @@ function onProgress(p) {
   progress.value = p
   // 记住本章读到哪，供首页「继续阅读」使用
   record(slug.value, p, chapterTitle.value)
+}
+function onPage({ page, total }) {
+  pageLabel.value = `${page} / ${total}`
 }
 
 // 阅读器在末页/首页边界请求跳转到相邻章节（由 EpubReader 的 goNext/goPrev 触发）
@@ -104,11 +119,12 @@ onBeforeUnmount(() => {
     <reading-progress :progress="progress" />
 
     <header class="chapter-head" :class="{ 'is-hidden': immersive }">
-      <span class="ch-num">{{ neighbor.self?.num || '' }}</span>
-      <span class="ch-title">{{ chapterTitle }}</span>
+      <span class="ch-num">{{ currentChapter?.num || '' }}</span>
+      <h1 class="ch-title">{{ chapterTitle.replace(/^第\s*\d+\s*章\s*/, '') }}</h1>
     </header>
 
     <epub-reader
+      ref="readerRef"
       :title="chapterTitle"
       :html="html"
       :theme-key="themeKey"
@@ -118,13 +134,24 @@ onBeforeUnmount(() => {
       :prev-slug="neighbor.prev?.slug || ''"
       :immersive="immersive"
       @progress="onProgress"
+      @page="onPage"
       @navigate="onNavigate"
       @toggle-ui="toggleImmersive"
     />
 
     <div class="chapter-nav-wrap" :class="{ 'is-hidden': immersive }">
       <chapter-nav :prev="neighbor.prev" :next="neighbor.next" />
+      <span class="desktop-reader-progress">{{ pageLabel }}<small>可使用键盘左右方向键翻页</small></span>
     </div>
+
+    <nav class="mobile-reader-controls" :class="{ 'is-hidden': immersive }" aria-label="手机阅读控制">
+      <router-link :to="{ path: '/', query: { chapter: slug } }" aria-label="目录">☰<small>目录</small></router-link>
+      <button type="button" aria-label="上一页" @click="readerRef?.goPrev()">‹</button>
+      <span class="mobile-reader-progress">{{ pageLabel }}</span>
+      <button type="button" aria-label="下一页" @click="readerRef?.goNext()">›</button>
+      <button type="button" aria-label="阅读设置" @click="mobileSettingsOpen = true">Aa<small>阅读设置</small></button>
+    </nav>
+    <reader-settings v-model:show="mobileSettingsOpen" />
 
     <p v-if="immersive" class="immersive-hint">再次轻触屏幕中央可唤出界面</p>
   </article>

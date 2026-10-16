@@ -2,13 +2,13 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import ePub from '@likecoin/epub-ts'
 import { buildEpub } from '../utils/epub-builder'
-import { getReaderTheme, THEME_LIST } from '../data/theme'
+import { getReaderTheme, getTheme, THEME_LIST } from '../data/theme'
 
 const props = defineProps({
   title: { type: String, required: true },
   author: { type: String, default: '佚名' },
   html: { type: String, required: true },
-  themeKey: { type: String, default: 'sepia' }, // light | sepia | paper | green | night
+  themeKey: { type: String, default: 'night' }, // night | warm | paper
   fontScale: { type: Number, default: 1 }, // 0.875 ~ 1.25
   lineHeight: { type: Number, default: 1.9 }, // 1.6 ~ 2.3
   // 相邻章节 slug：到达本章末尾/开头时，翻页箭头与边界滑动会跳转到对应章节
@@ -17,7 +17,7 @@ const props = defineProps({
   // 沉浸模式下隐藏悬浮翻页箭头等 chrome
   immersive: { type: Boolean, default: false },
 })
-const emit = defineEmits(['progress', 'ready', 'error', 'navigate', 'toggle-ui'])
+const emit = defineEmits(['progress', 'page', 'ready', 'error', 'navigate', 'toggle-ui'])
 
 // 点击热区划分（占阅读区宽度比例）：
 //   左侧 EDGE_RATIO → 上一页
@@ -37,6 +37,13 @@ let rendition = null
 let ro = null
 let initToken = 0
 let swipeCleanup = null
+
+// EPUB 主题样式会按切换顺序追加，显式覆盖正文颜色可避免旧主题抢占优先级。
+function applyReaderColors(key) {
+  const { bg, text } = getTheme(key)
+  rendition.themes.override('background', bg, true)
+  rendition.themes.override('color', text, true)
+}
 
 // 翻页箭头图标随边界变化：在末页且有下一章时显示「»」提示将跳下一章
 const nextLabel = computed(() => (atEnd.value && props.nextSlug ? '»' : '›'))
@@ -222,26 +229,30 @@ async function init() {
       rendition.themes.register(t.key, getReaderTheme(t.key))
     )
     rendition.themes.select(props.themeKey)
+    applyReaderColors(props.themeKey)
     if (props.fontScale)
-      rendition.themes.override('font-size', `${props.fontScale}rem`)
+      rendition.themes.override('font-size', `${1.125 * props.fontScale}rem`)
     if (props.lineHeight)
       // 优先级 true：覆盖 epub-builder 内置 READER_CSS 里 body 的 line-height: 1.9
       rendition.themes.override('line-height', String(props.lineHeight), true)
 
-    await rendition.display()
-    if (my !== initToken) return
-    loading.value = false
-    emit('ready')
-
-    // 阅读进度 + 边界状态来自库自身的 relocated 事件（CFI 定位）
-    rendition.on('relocated', (loc) => {
+    // 阅读进度与页码来自库自身定位；先注册再 display，确保首屏也收到页码。
+    const onRelocated = (loc) => {
       const pct = loc?.start?.percentage
       if (typeof pct === 'number') emit('progress', Math.round(pct * 100))
+      const displayed = loc?.start?.displayed
+      if (displayed?.page && displayed?.total) emit('page', displayed)
       // atEnd / atStart 由库直接给出；个别版本缺失时用整本百分比兜底
       // （每章均为独立 EPUB，100% 即本章末页，0% 即首页）
       atEnd.value = loc?.atEnd ?? (typeof pct === 'number' && pct >= 0.999)
       atStart.value = loc?.atStart ?? (typeof pct === 'number' && pct <= 0.001)
-    })
+    }
+    rendition.on('relocated', onRelocated)
+    await rendition.display()
+    if (my !== initToken) return
+    onRelocated(rendition.currentLocation())
+    loading.value = false
+    emit('ready')
 
     // 正文内的点击翻页与横向滑动翻页，统一在 contentDocument 上接管，
     // 见 setupInteractions()（移动端轻触/滑动、桌面端点击均支持）
@@ -285,13 +296,14 @@ watch(
   (k) => {
     if (!rendition || error.value) return
     rendition.themes.select(k)
+    applyReaderColors(k)
   }
 )
 watch(
   () => props.fontScale,
   (s) => {
     if (!rendition || error.value) return
-    rendition.themes.override('font-size', `${s}rem`)
+    rendition.themes.override('font-size', `${1.125 * s}rem`)
   }
 )
 watch(
@@ -316,7 +328,7 @@ defineExpose({ goNext, goPrev })
       class="reader-fallback reader-inner"
       v-html="html"
       :style="{
-        fontSize: `calc(17px * ${fontScale})`,
+        fontSize: `calc(18px * ${fontScale})`,
         lineHeight: String(lineHeight),
       }"
     ></div>

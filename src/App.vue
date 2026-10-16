@@ -6,7 +6,7 @@ import { getNavOverrides } from './data/theme'
 import AppNav from './components/AppNav.vue'
 
 const { themeKey } = useTheme()
-// 夜间（night）用 Naive UI 暗色基线，其余 4 套用亮色基线 + 各自覆盖令牌
+// 夜间用暗色基线，白天两套使用亮色基线。
 const theme = computed(() => (themeKey.value === 'night' ? darkTheme : null))
 const themeOverrides = computed(() => getNavOverrides(themeKey.value))
 </script>

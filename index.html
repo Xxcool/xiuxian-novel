@@ -12,9 +12,11 @@
         try {
           var k = localStorage.getItem('xx-theme');
           var night = k === 'night' || (!k && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var initial = k === 'night' || k === 'warm' || k === 'paper' ? k : (night ? 'night' : 'warm');
           var el = document.documentElement;
           el.setAttribute('data-theme', night ? 'dark' : 'light');
-          el.style.backgroundColor = night ? '#15171a' : '#ffffff';
+          el.setAttribute('data-theme-key', initial);
+          el.style.backgroundColor = initial === 'night' ? '#111923' : initial === 'paper' ? '#f7f1e7' : '#f8f7f2';
         } catch (e) {}
       })();
     </script>

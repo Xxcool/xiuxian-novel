@@ -1,20 +1,20 @@
 import JSZip from 'jszip'
 
 // 阅读区基础排版（字号/行高由 EpubReader 通过 epub-ts themes.override 动态控制，这里只定版式）
-// 字体走系统无衬线，与外壳保持一致；引述/分隔线用低对比中性色而非强调色，减少视觉噪声。
+// 正文采用宋体书卷排版；字体大小和行高仍由阅读设置动态覆盖。
 const READER_CSS = `
 body {
-  font-family: -apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC',system-ui,sans-serif;
+  font-family: 'Songti SC','STSong','Noto Serif CJK SC','Source Han Serif SC',serif;
   line-height: 1.9;
   margin: 0;
-  padding: 5% 8%;
-  text-align: justify;
+  padding: 5% 7%;
+  text-align: left;
   -webkit-font-smoothing: antialiased;
 }
 h1 { font-size: 1.6em; font-weight: 700; text-align: center; margin: 0.2em 0 1em; letter-spacing: -0.01em; }
 h2 { font-size: 1.2em; font-weight: 650; margin: 1.4em 0 0.6em; }
 h3 { font-size: 1.05em; font-weight: 600; margin: 1.1em 0 0.5em; opacity: 0.85; }
-p { text-indent: 2em; margin: 0.55em 0; }
+p { text-indent: 0; margin: 0 0 1.4em; }
 blockquote {
   border-left: 3px solid rgba(128,128,128,0.35);
   padding: 6px 0 6px 16px;

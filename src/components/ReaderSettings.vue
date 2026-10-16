@@ -108,7 +108,7 @@ const scaleKeys = Object.keys(SCALE_LABELS)
 }
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 .theme-card {

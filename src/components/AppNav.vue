@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { NDrawer, NDrawerContent } from 'naive-ui'
 import ChapterList from './ChapterList.vue'
@@ -12,6 +12,7 @@ const router = useRouter()
 const route = useRoute()
 const drawerOpen = ref(false)
 const settingsOpen = ref(false)
+const isChapter = computed(() => route.name === 'chapter')
 
 function goHome() {
   // 从阅读页回目录时携带当前章节 slug，使首页目录高亮该章
@@ -25,9 +26,10 @@ function goHome() {
 
 <template>
   <nav class="app-nav" :class="{ 'is-hidden': immersive }">
+    <button v-if="isChapter" class="mobile-back" type="button" aria-label="返回目录" @click="goHome">‹</button>
     <a class="brand" href="/" @click.prevent="goHome">
-      <span class="mark"></span>
       签到修仙
+      <span class="mark" aria-hidden="true">签</span>
     </a>
 
     <div class="nav-actions">
@@ -49,7 +51,7 @@ function goHome() {
         @click="drawerOpen = true"
         aria-label="章节列表"
       >
-        ≡
+        <span class="nav-glyph">☰</span><span class="nav-word">目录</span>
       </button>
       <!-- 阅读设置（主题/字号/行距）点击触发底部面板 -->
       <button
@@ -58,13 +60,15 @@ function goHome() {
         @click="settingsOpen = true"
         aria-label="阅读设置"
       >
-        ⚙
+        <span class="nav-glyph">Aa</span><span class="nav-word">阅读设置</span>
       </button>
+      <button v-if="isChapter" class="mobile-toc" type="button" aria-label="章节列表" @click="drawerOpen = true">☷</button>
     </div>
 
-    <n-drawer v-model:show="drawerOpen" placement="right" :width="300">
+    <n-drawer v-model:show="drawerOpen" placement="right" :width="'min(420px, 92vw)'">
       <n-drawer-content title="章节列表" :native-scrollbar="false">
-        <chapter-list @pick="drawerOpen = false" />
+        <!-- 抽屉用紧凑形态：首页的大标题/两列网格/面板底色在窄抽屉里会挤压断行 -->
+        <chapter-list variant="drawer" @pick="drawerOpen = false" />
       </n-drawer-content>
     </n-drawer>
 
