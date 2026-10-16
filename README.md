@@ -7,7 +7,6 @@
 当前进度：**已更新至第 110 章**（卷一「终局篇」B 段收官，无月之战 + 老仆燃灯）。
 
 线上地址：https://xiuxian-novel.pages.dev
-代码仓库：https://github.com/Xxcool/xiuxian-novel
 
 ## ✨ 功能特性
 
