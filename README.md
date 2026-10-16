@@ -2,7 +2,9 @@
 
 一部「废柴少年获得系统后逆袭」的修仙爽文在线阅读站。
 
-本仓库是 **Vue 3 + Vite + Naive UI + @likecoin/epub-ts** 单页应用（SPA）。章节 Markdown 在构建期内联进前端产物，运行时由浏览器在内存中打包成标准 EPUB2，再交给专业阅读器库渲染为**带翻页、进度、多主题**的仿真书页面。
+本仓库是 **Vue 3 + Vite + Naive UI + @likecoin/epub-ts** 单页应用（SPA）。章节 Markdown 在构建期拆分为按需加载的独立 chunk，运行时由浏览器在内存中打包成标准 EPUB2，再交给专业阅读器库渲染为**带翻页、进度、多主题**的仿真书页面。
+
+当前进度：**已更新至第 110 章**（卷一「终局篇」B 段收官，无月之战 + 老仆燃灯）。
 
 线上地址：https://xiuxian-novel.pages.dev
 代码仓库：https://github.com/Xxcool/xiuxian-novel
@@ -93,9 +95,11 @@ pnpm preview    # http://localhost:4173
 
 ## 🔄 更新章节
 
-1. 在 `src/content/` 下新增 / 修改 `.md` 章节（文件名即 slug，如 `第11章_xxx.md`）。
-   > 原始创作稿位于工作区根 `../output/*.md`，需同步到 `src/content/`。
-2. 在 `src/data/chapters.js` 的章节清单中追加对应条目。
+1. 在工作区根 `../output/*.md` 新增 / 修改章节（文件名即 slug，如 `第11章_xxx.md`），
+   并把文件复制到 `src/content/`。
+   > 章节 md 是唯一事实源；番茄平台的投稿 txt 由 `../convert_to_qimao.py` 从 `output/` 生成。
+2. 重建 `src/data/chapters.js` 章节清单（该文件由脚本生成，勿手工编辑）——
+   需按 `src/content/` 实际文件重排，保持 `num` / `slug` / `title` 三者与文件名一致。
 3. 提交并推送：
 
    ```bash
