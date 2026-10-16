@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="10" fill="#b5372e"/>
+  <rect x="4.5" y="4.5" width="55" height="55" rx="7" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="1.6"/>
+  <g fill="#faf4eb" font-family="'Kaiti SC','STKaiti','KaiTi','Songti SC','STSong','SimSun',serif" font-size="26" text-anchor="middle">
+    <text x="32" y="27">修</text>
+    <text x="32" y="55">仙</text>
+  </g>
+</svg>

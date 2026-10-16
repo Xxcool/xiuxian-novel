@@ -6,7 +6,7 @@
 //
 // 现在改为 lazy：glob 只建立「路径 → 动态 import 函数」的映射，不含正文；
 // 正文在章节真正被访问时才按需下载，Vite 会把每章拆成独立 chunk。
-// 结果同步返回，便于直接用在 computed 里；重复访问命中内存缓存，不再发请求。
+// 结果恒以 Promise 返回（命中缓存时也包成 Promise），重复访问不再发请求。
 
 const modules = import.meta.glob('../content/*.md', {
   query: '?raw',
@@ -15,13 +15,20 @@ const modules = import.meta.glob('../content/*.md', {
 
 const cache = new Map()
 
+// 返回值恒为 Promise<string>：'' 表示章节不存在。
+//
+// 缓存里两种值都会出现：进行中的 Promise（首次加载）、已解析的正文字符串
+// （解析完成后回写，以及 prefetchChapters 预取完成后的结果）。
+// 命中字符串时必须包一层 Promise 再返回——调用方统一写 p.then(...)，
+// 直接把字符串交出去会报 "p.then is not a function"，且正文永远停在 null，
+// 表现为「点了下一章一直载入中」。
 export function getChapterRaw(slug) {
   const key = `../content/${slug}.md`
   const loader = modules[key]
-  if (!loader) return ''
+  if (!loader) return Promise.resolve('')
 
   const cached = cache.get(key)
-  if (cached !== undefined) return cached
+  if (cached !== undefined) return Promise.resolve(cached)
 
   const promise = loader().then((text) => {
     cache.set(key, text)

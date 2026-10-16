@@ -1,10 +1,22 @@
-/* 小说站三套视觉共用布局，色彩与首页景图由主题 key 联动。
+/* 站点三套视觉共用布局，色彩与首页景图由主题 key 联动。
    全幅通栏：导航与内容铺满整页，页面底色即主题底色（body 直接 var(--bg)），
    不再做「浮在背景上的圆角面板」，也就不存在面板外的第二块颜色。 */
 /* 全幅后内容区与页面必须同底色：panel/reader 直接引用 --bg，
    避免短页面底部露出「内容色 vs 页面色」的细微色差。 */
+/* 标题展示字体：马善政毛笔楷书（OFL 开源），仅子集化站名/书名用到的 10 个字，
+   woff2 约 4.6KB；unicode-range 限定，未命中的字自动回退系统字体栈。 */
+@font-face {
+  font-family: 'XiuXian Display';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/xiuxian-display.woff2') format('woff2');
+  unicode-range: U+4E07, U+4E00, U+4FEE, U+4ED9, U+5230, U+5E9F, U+67F4, U+7B7E, U+4ECE, U+53E4;
+}
 :root {
   --serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
+  /* 标题专用金石味字体栈：内嵌毛笔楷书优先，其余字回退楷 → 隶 → 宋 */
+  --font-display: 'XiuXian Display', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Libian SC', 'Weibei SC', 'Baoli SC', 'STSong', 'Songti SC', 'Noto Serif CJK SC', serif;
   --hero-image: url('/images/moonlit-mountains.webp');
   --panel-bg: var(--bg);
   --reader-bg: var(--bg);
@@ -19,13 +31,27 @@ body { background: var(--bg); }
   background: var(--panel-bg); border: 0; border-bottom: 1px solid var(--border);
   border-radius: 0; backdrop-filter: none;
 }
-.app-nav .brand { display: flex; flex-direction: row; gap: 8px; color: var(--accent); font-family: var(--serif); font-size: 1.35rem; font-weight: 600; letter-spacing: .09em; }
-.app-nav .brand .mark { display: inline-grid; place-items: center; width: 15px; height: 22px; border: 1px solid #a83c35; border-radius: 2px; background: transparent; color: #c85245; font-size: 11px; }
+.app-nav .brand { display: flex; flex-direction: row; gap: 8px; color: var(--accent); font-family: var(--font-display); font-size: 1.35rem; font-weight: 600; letter-spacing: .09em; }
+/* 品牌「印章」：朱文印——朱砂描边与字、微旋转模拟手盖，竖排「修仙」 */
+.app-nav .brand .mark {
+  display: inline-grid; place-items: center;
+  width: 28px; height: 28px; padding: 0;
+  border: 1.5px solid var(--seal-ink); border-radius: 3.5px;
+  background: color-mix(in srgb, var(--seal-ink) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--seal-ink) 20%, transparent);
+  color: var(--seal-ink);
+  writing-mode: vertical-rl; text-orientation: upright;
+  font-family: var(--font-display); font-size: 12px; font-weight: 600; line-height: 1.12; letter-spacing: .04em;
+  transform: rotate(-3deg); opacity: .92;
+}
 .app-nav .brand .mark::after { display: none; }
 .nav-actions { gap: 8px; }
 .nav-icon-btn { width: auto; height: 40px; padding: 0 12px; gap: 7px; color: var(--text); font-family: var(--serif); font-size: 15px; }
 .nav-icon-btn + .nav-icon-btn::before { content: ''; width: 1px; height: 16px; background: var(--border-strong); margin-right: 12px; }
-.nav-glyph { display: none; }
+.nav-glyph { font-size: 16px; line-height: 1; }
+/* 右上角仓库入口：复用 .nav-icon-btn 规格，图标换成 GitHub 官方 SVG（跟随 currentColor） */
+.nav-github { text-decoration: none; }
+.nav-github .github-mark { display: block; width: 16px; height: 16px; fill: currentColor; }
 .mobile-back, .mobile-toc { display: none; }
 .app-main { width: 100%; max-width: none; margin: 0 auto; padding: 0 0 36px; }
 .app-footer { color: var(--text-soft); }
@@ -40,8 +66,8 @@ body { background: var(--bg); }
 [data-theme-key='warm'] .home-hero { background-image: linear-gradient(90deg, rgba(248,247,242,.93), rgba(248,247,242,.62) 41%, transparent 78%), var(--hero-image); }
 [data-theme-key='paper'] .home-hero { background-image: linear-gradient(90deg, rgba(247,241,231,.92), rgba(247,241,231,.58) 41%, transparent 78%), var(--hero-image); }
 .hero-copy { width: min(48%, 490px); }
-.home-title { color: var(--hero-copy); font-family: var(--serif); font-size: clamp(3.5rem, 5.2vw, 5.3rem); font-weight: 600; letter-spacing: .1em; line-height: 1.2; white-space: nowrap; }
-.home-sub { margin-top: 6px; color: var(--hero-copy); font-family: var(--serif); font-size: clamp(1.45rem, 2vw, 2rem); letter-spacing: .08em; }
+.home-title { color: var(--hero-copy); font-family: var(--font-display); font-size: clamp(3.5rem, 5.2vw, 5.3rem); font-weight: 600; letter-spacing: .1em; line-height: 1.2; white-space: nowrap; }
+.home-sub { margin-top: 6px; color: var(--hero-copy); font-family: var(--font-display); font-size: clamp(1.45rem, 2vw, 2rem); letter-spacing: .08em; }
 .home-meta { margin-top: 18px; display: flex; gap: 8px; color: var(--hero-copy); font-family: var(--serif); font-size: 14px; letter-spacing: .06em; }
 /* CTA 按钮跟随主题强调色（月下=金 / 暖白=墨绿 / 宣纸=朱砂），文字用 accentText 保证对比 */
 .hero-cta { display: flex; align-items: center; justify-content: space-between; width: 225px; min-height: 52px; margin-top: 24px; padding: 0 25px; border: 1px solid color-mix(in srgb, var(--accent) 72%, #fff); border-radius: 5px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 86%, #fff), color-mix(in srgb, var(--accent) 96%, #fff) 53%, var(--accent)); color: var(--accent-ink); font-family: var(--serif); font-size: 1.16rem; font-weight: 700; text-decoration: none; box-shadow: inset 0 1px color-mix(in srgb, #fff 45%, transparent); transition: filter .18s, transform .18s; }
@@ -50,9 +76,10 @@ body { background: var(--bg); }
 .chapter-list-wrap { margin: 0; padding: 24px clamp(28px, 4vw, 60px) 34px; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--panel-bg) 93%, transparent), var(--panel-bg)); backdrop-filter: none; }
 .directory-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
 .directory-heading h2 { display: flex; align-items: center; gap: 18px; font-family: var(--serif); font-size: 1.9rem; font-weight: 500; letter-spacing: .06em; }
-.heading-rule { display: inline-block; width: 66px; height: 1px; background: var(--accent); opacity: .75; }
+.heading-rule { display: inline-block; width: 66px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--accent), transparent); opacity: .75; }
 .directory-total { color: var(--text-soft); font-size: 13px; }
-.chapter-tabs { display: flex; gap: 12px; margin: 12px 0 14px; overflow-x: auto; }
+.chapter-tabs { display: flex; gap: 12px; margin: 12px 0 14px; overflow-x: auto; scrollbar-width: none; }
+.chapter-tabs::-webkit-scrollbar { display: none; }
 .chapter-tabs button { flex: 0 0 auto; min-width: 126px; min-height: 34px; padding: 4px 14px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text); font-family: var(--serif); font-size: 15px; white-space: nowrap; cursor: pointer; }
 .chapter-tabs button:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 /* 选中 tab 跟随主题强调色；不再硬编码月下金色 */
@@ -75,7 +102,8 @@ body { background: var(--bg); }
 .chapter-list-wrap.is-drawer { padding: 4px 0 12px; border: 0; background: transparent; }
 .chapter-list-wrap.is-drawer .drawer-total { display: block; margin-bottom: 12px; font-size: 12px; white-space: nowrap; }
 .chapter-list-wrap.is-drawer .chapter-tabs { gap: 8px; margin: 0 0 12px; }
-.chapter-list-wrap.is-drawer .chapter-tabs button { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 4px 10px; font-size: 13px; }
+/* tab 保持自身宽度可横向滚动（滚动条已隐藏），不再压缩导致文字截断 */
+.chapter-list-wrap.is-drawer .chapter-tabs button { flex: 0 0 auto; min-width: 0; min-height: 32px; padding: 4px 12px; font-size: 13px; }
 .chapter-list-wrap.is-drawer .chapter-grid { grid-template-columns: 1fr; gap: 6px; }
 .chapter-list-wrap.is-drawer .chapter-grid .chapter-card { min-height: 42px; padding: 0 12px; gap: 10px; }
 .chapter-list-wrap.is-drawer .chapter-grid .card-num { min-width: 44px; font-size: 13.5px; }
@@ -114,6 +142,8 @@ body { background: var(--bg); }
   .app-nav:has(.mobile-back) { justify-content: space-between; }
   .app-nav:has(.mobile-back) .brand { position: absolute; left: 50%; transform: translateX(-50%); color: var(--text); font-size: 17px; }
   .app-nav:has(.mobile-back) .nav-icon-btn { display: none; }
+  /* 章节页移动端只保留 返回 / 目录，但仓库入口始终可用（右上、图标态） */
+  .app-nav:has(.mobile-back) .nav-github { display: inline-flex; }
   .mobile-back, .mobile-toc { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--text); font-size: 31px; cursor: pointer; }
   .mobile-toc { font-size: 26px; }
   .app-main { width: 100%; padding-bottom: 0; }

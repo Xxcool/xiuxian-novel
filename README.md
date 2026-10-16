@@ -4,7 +4,8 @@
 
 **Vue 3 + Vite + Naive UI + `@likecoin/epub-ts`** 单页应用。章节 Markdown 在浏览器内被打包成标准 EPUB2，交由专业阅读库渲染成带翻页、进度、多主题的仿真书页面。
 
-线上地址：https://xiuxian-novel.pages.dev
+- 线上阅读：<https://xiuxian-novel.pages.dev>
+- 源码仓库：<https://github.com/Xxcool/xiuxian-novel（站点右上角> GitHub 图标可直接跳转）
 
 ---
 
@@ -13,17 +14,16 @@
 ### 阅读体验
 
 - **专业分页阅读器**：分页、翻页、进度定位全部由阅读库接管，零手写分页逻辑。
-- **5 套主题**（中性灰阶底色 + 单一墨青强调色，切换后记忆）：
-
-  | key | 名称 | 背景 | 文字 | 说明 |
-  |-----|------|------|------|------|
-  | `light` | 极简白 | `#ffffff` | `#1c1c1e` | 白天首选（默认） |
-  | `paper` | 暖纸白 | `#faf8f5` | `#2b2823` | 柔和护眼 |
-  | `sepia` | 宣纸 | `#f5f1e8` | `#33302a` | 仿纸质书 |
-  | `green` | 青瓷 | `#eef4f2` | `#22322e` | 淡雅护眼 |
-  | `night` | 深夜 | `#15171a` | `#c9ccd1` | 夜间首选（深色默认） |
-
-  跟随系统 `prefers-color-scheme` 选择初始主题，`index.html` 内联脚本提前注入底色以避免首屏闪白。
+- **三套主题**，各自配一套完整的「底色 + 正文色 + 强调色 + 首页景图」，切换后记忆：
+  | key     | 名称 | 背景        | 文字        | 强调色          | 首页景图                     | 说明         |
+  | ------- | -- | --------- | --------- | ------------ | ------------------------ | ---------- |
+  | `night` | 月下 | `#111D26` | `#e7e1d5` | 金 `#c9ad75`  | `moonlit-mountains.webp` | 深夜沉浸（深色默认） |
+  | `warm`  | 暖白 | `#f8f7f2` | `#24352f` | 墨绿 `#27533f` | `warm-mountains.webp`    | 清爽书房（浅色默认） |
+  | `paper` | 宣纸 | `#f7f1e7` | `#302c27` | 朱砂 `#a44334` | `paper-mountains.webp`   | 温和护眼       |
+  主题唯一来源是 `src/data/theme.js`：`THEME_LIST` 定义底色/正文/强调，`SHELL` 定义该主题下的浮层、描边、阴影与目录底板色，全部以 CSS 变量注入 `documentElement`。
+  - **首屏防闪**：`index.html` 内联脚本在 CSS 加载前就把底色写到 `<html>` 上。
+  - **切换零残留**：切换主题时同步改写 `<html>` 的内联 `backgroundColor`（内联样式优先级最高、不会随 CSS 变量自动更新），否则正文之外的区域会残留首次加载的主题色。
+  - **正文同步**：EPUB 内容在 `srcdoc` iframe 里，追加式主题规则可能被旧规则覆盖；切换时用 `rendition.themes.override(..., true)` 把正文背景与文字色**强制写入**，保证外壳与正文永远同色。
 - **字号 / 行距**：四档字号（小·中·大·特大）+ 三档行距（紧凑·标准·宽松），实时生效并持久化。
 - **多端翻页**：
   - 桌面端：点正文左/右**边缘区**（各 28%）翻页，`←` `→` 与空格翻页。
@@ -38,22 +38,38 @@
 - **目录分组**：章节按每 20 章折叠分组，默认展开当前阅读所在组，每组显示已读数。
 - **目录搜索**：按章名或章号过滤，命中片段高亮；搜索态自动展平分组。
 - **当前章高亮**：列表自动高亮正在读的章节并滚动到视野中央。
-- **设置收纳**：主题 / 字号 / 行距收进底部面板（顶栏 ⚙ 触发），移动端不因顶部控件过多误触翻页手势。
+- **设置收纳**：主题 / 字号 / 行距收进底部面板（顶栏「设置」触发），移动端不因顶部控件过多误触翻页手势。
+- **章节区间**：目录顶部按每 20 章一段的区间 tab，可横向滚动且隐藏滚动条（窄屏也不挤压断行）。
+- **目录双形态**：首页用 `panel` 形态（两列网格 + 大标题），抽屉里用 `drawer` 形态（单列紧凑、无大标题），同一组件靠 `variant` 区分。
+- **仓库入口**：右上角 GitHub 图标，新标签页打开源码仓库。
+
+### 版面
+
+- **全幅通栏**：导航与内容铺满整页，页面底色即主题底色（`body` 直接用 `var(--bg)`），不再做「浮在背景上的圆角面板」，因此不存在「面板外第二块颜色」。
+- **同色契约**：`--panel-bg` / `--reader-bg` 一律指向 `var(--bg)`，短页面底部也不会露出内容色与页面色的细微色差。
+- **首页**：大幅景图承托书名（景图随主题切换），目录作为独立底板接在其后。
+- **正文**：章节标题、EPUB 书页、底部翻页区三段式；章节号两侧的渐变装饰线与目录标题下的 `heading-rule` 同款。
+
+### 品牌视觉
+
+- **印章**：顶栏书名旁是一枚朱文印——竖排「修仙」、朱砂描边、微旋转模拟手盖；印章色 `--seal-ink` 跟随主题（深色底自动提亮），与 favicon 同源。
+- **标题字体**：书名 / 站名使用 `--font-display`：内嵌「马善政」毛笔楷书子集（只含站名/书名 10 个字，woff2 约 4.6KB，`unicode-range` 限定）优先，其余字回退系统楷 → 隶 → 宋字体栈，任何设备都是毛笔字效果且几乎零加载成本。
+- **favicon**：同一枚印章的三种形态——`favicon.svg`（矢量优先）、`favicon.ico`（16px 单字防糊 + 32/48 双字）、`favicon.png`（180px apple-touch-icon）。
 
 ---
 
 ## 🧱 技术栈
 
-| 能力 | 选型 |
-|------|------|
-| 框架 | Vue 3 + Vite 5 |
-| 路由 | vue-router 4（History 模式，SPA 深链接） |
-| UI 组件 | Naive UI 2（`n-config-provider` + `themeOverrides`） |
-| Markdown → HTML | `marked` |
-| EPUB 打包 | `jszip`（浏览器内生成 EPUB2 Blob） |
-| 阅读渲染 | `@likecoin/epub-ts`（分页 / 翻页 / 主题注入 / CFI 进度） |
-| 部署 | Cloudflare Pages（连接 GitHub `main`，push 即部署） |
-| 包管理 | pnpm（Node ≥ 20，仓库含 `.nvmrc`） |
+| 能力              | 选型                                                 |
+| --------------- | -------------------------------------------------- |
+| 框架              | Vue 3 + Vite 5                                     |
+| 路由              | vue-router 4（History 模式，SPA 深链接）                   |
+| UI 组件           | Naive UI 2（`n-config-provider` + `themeOverrides`） |
+| Markdown → HTML | `marked`                                           |
+| EPUB 打包         | `jszip`（浏览器内生成 EPUB2 Blob）                         |
+| 阅读渲染            | `@likecoin/epub-ts`（分页 / 翻页 / 主题注入 / CFI 进度）       |
+| 部署              | Cloudflare Pages（连接 GitHub `main`，push 即部署）        |
+| 包管理             | pnpm（Node ≥ 20，仓库含 `.nvmrc`）                       |
 
 ---
 
@@ -65,7 +81,9 @@ novel_site/
 ├── package.json
 ├── pnpm-lock.yaml
 ├── vite.config.js
-├── public/_redirects         # SPA 深链接兜底：/* /index.html 200
+├── public/
+│   ├── _redirects            # SPA 深链接兜底：/* /index.html 200
+│   └── images/               # 三主题首页景图（WebP，三张共约 336 KB）
 └── src/
     ├── main.js                 # Vue 应用入口
     ├── App.vue                 # 根组件（n-config-provider 主题壳）
@@ -74,9 +92,9 @@ novel_site/
     │   ├── Home.vue            # 首页：hero + 继续阅读卡片 + 目录
     │   └── Chapter.vue         # 阅读页：md → HTML → EPUB → 阅读器
     ├── components/
-    │   ├── EpubReader.vue      # 封装 epub-ts：分页渲染 + 手势接管
-    │   ├── AppNav.vue          # 顶栏（目录抽屉 + 设置 + 沉浸退出）
-    │   ├── ChapterList.vue     # 目录：分组 / 搜索 / 已读标记
+    │   ├── EpubReader.vue      # 封装 epub-ts：分页渲染 + 手势接管 + 正文配色强制写入
+    │   ├── AppNav.vue          # 顶栏（目录抽屉 + 设置 + GitHub 入口 + 沉浸退出）
+    │   ├── ChapterList.vue     # 目录：分组 / 搜索 / 已读标记（panel / drawer 双形态）
     │   ├── ChapterNav.vue      # 底部 上一章 · 目录 · 下一章
     │   ├── ReaderSettings.vue  # 底部设置面板（主题 / 字号 / 行距）
     │   └── ReadingProgress.vue # 顶部细进度条
@@ -90,6 +108,7 @@ novel_site/
     │   ├── theme.js            # 主题注册表（单一来源）
     │   └── loader.js           # 章节 md 按需加载 + 缓存 + 相邻预取
     ├── styles/global.css       # 全局设计令牌（CSS 变量，随主题变化）
+    ├── styles/novel.css        # 站点版面：全幅通栏 + 三主题首页 / 正文 / 抽屉
     ├── content/                # 章节 Markdown 源（每章一个独立 chunk）
     └── utils/epub-builder.js   # marked HTML → 合规 EPUB2 Blob
 ```
@@ -153,21 +172,27 @@ Markdown 可以直接 `v-html` 渲染，本站却在浏览器里先把它包成 
 
 ### 关键实现约束
 
-| 环节 | 约束 | 原因 |
-|------|------|------|
-| 章节加载 | `import.meta.glob` **不带** `eager: true` | 110 章约 23 万字（源 md 共 849 KB），全量内联会把正文全部塞进首屏 JS |
-| `chapter.xhtml` | 必须经 `toXhtml()` 处理 | EPUB 以严格 XML 解析，`<hr>` 等 HTML5 void 元素未自闭合会报错 |
-| `content.opf` | 必须声明 `xmlns:opf` | 否则 manifest 会被 epub-ts 的 XML 解析截断 |
-| `mimetype` | 首个写入且 `compression: 'STORE'` | EPUB 规范要求，压缩或错位会导致解析失败 |
-| 渲染容器 | `renderTo({ snap: false, allowScriptedContent: true })` | 关闭库内置滑动，避免与自接管手势抢事件；允许脚本否则 srcdoc iframe 内主题注入被拦截 |
-| 手势监听 | 挂在 iframe 的 `contentDocument` 上 | 库内置 Touch 管理器监听 iframe 外层，收不到 iframe 内触摸事件 |
-| 点击热区 | 左 28% / 中 / 右 28% 三分 | 两侧翻页、中央切换沉浸模式；滑动翻页互不影响 |
+| 环节              | 约束                                                      | 原因                                                |
+| --------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| 章节加载            | `import.meta.glob` **不带** `eager: true`                 | 110 章约 23 万字（源 md 共 849 KB），全量内联会把正文全部塞进首屏 JS     |
+| `chapter.xhtml` | 必须经 `toXhtml()` 处理                                      | EPUB 以严格 XML 解析，`<hr>` 等 HTML5 void 元素未自闭合会报错     |
+| `content.opf`   | 必须声明 `xmlns:opf`                                        | 否则 manifest 会被 epub-ts 的 XML 解析截断                 |
+| `mimetype`      | 首个写入且 `compression: 'STORE'`                            | EPUB 规范要求，压缩或错位会导致解析失败                            |
+| 渲染容器            | `renderTo({ snap: false, allowScriptedContent: true })` | 关闭库内置滑动，避免与自接管手势抢事件；允许脚本否则 srcdoc iframe 内主题注入被拦截 |
+| 手势监听            | 挂在 iframe 的 `contentDocument` 上                         | 库内置 Touch 管理器监听 iframe 外层，收不到 iframe 内触摸事件        |
+| 点击热区            | 左 28% / 中 / 右 28% 三分                                    | 两侧翻页、中央切换沉浸模式；滑动翻页互不影响                            |
 
 ---
 
 ## 📝 版本
 
-当前 `package.json` 版本：`4.0.0`（UI 改版：现代极简设计体系 + 进度记忆 / 沉浸阅读 / 目录分组搜索）。
+当前 `package.json` 版本：`4.2.0`。
+
+| 版本      | 变更                                                                                                                            |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `4.2.0` | 品牌印章视觉（顶栏朱文印 + 印章 favicon 三件套）；书名/站名内嵌毛笔楷书子集字体（马善政，OFL，woff2 约 4.6KB）；修复「下一章」预取缓存命中后返回字符串导致 `.then` 报错、正文卡「载入中」的 bug |
+| `4.1.0` | 三套主题（月下 / 暖白 / 宣纸）各自配齐底色、正文色、强调色与首页景图；全幅通栏版面；主题切换零残留（`<html>` 内联底色同步 + iframe 正文配色强制写入）；顶栏图标化并新增 GitHub 入口；目录区间 tab 可滚动且隐藏滚动条 |
+| `4.0.0` | UI 改版：现代极简设计体系 + 进度记忆 / 沉浸阅读 / 目录分组搜索；章节 md 改为按需加载                                                                            |
 
 ## 📄 许可证
 
