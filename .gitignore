@@ -15,3 +15,6 @@ build/
 # 依赖与构建产物（pnpm）
 node_modules/
 dist/
+
+# 本地验证脚本产物（verify-build.cjs 生成的截图等）
+.verify/

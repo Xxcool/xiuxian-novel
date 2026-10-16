@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
-import { getChapterRaw } from '../data/loader'
+import { getChapterRaw, prefetchChapters } from '../data/loader'
 import { getNeighbor } from '../data/chapters'
 import { useTheme } from '../composables/useTheme'
 import { useReaderSettings } from '../composables/useReaderSettings'
@@ -18,9 +18,40 @@ const { scale, lineHeight } = useReaderSettings()
 // slug 必须做成响应式：同一 Chapter 组件在章节间跳转时会被 Vue Router 复用，
 // 若用普通 const 捕获 route.params.slug，切换章节后内容/相邻章节不会更新（表现为“点了下一章没跳转”）
 const slug = computed(() => decodeURIComponent(route.params.slug))
-const raw = computed(() => getChapterRaw(slug.value))
 const neighbor = computed(() => getNeighbor(slug.value))
-const found = computed(() => !!raw.value)
+
+// 章节正文按需加载（见 loader.js）：getChapterRaw 返回 Promise，
+// 这里存到 ref 并在 slug 变化时重新拉取；null 表示未就绪，'' 表示章节不存在。
+const raw = ref(null)
+const loadedSlug = ref('')
+
+watch(
+  slug,
+  (s) => {
+    const p = getChapterRaw(s)
+    // 同步快速切换时可能先发出旧请求，标记当前 slug 以丢弃过期结果
+    loadedSlug.value = s
+    raw.value = null
+    p.then((text) => {
+      if (loadedSlug.value !== s) return
+      raw.value = text
+    })
+  },
+  { immediate: true },
+)
+
+const found = computed(() => raw.value !== null && raw.value !== '')
+// 正文未就绪与确实不存在要区分开：前者显示加载中，后者显示「章节不存在」
+const loading = computed(() => raw.value === null)
+
+// 读完本章往往直接点下一章，提前把相邻两章拉下来，翻页即可秒开
+watch(
+  neighbor,
+  (nb) => {
+    prefetchChapters([nb.prev?.slug, nb.next?.slug])
+  },
+  { immediate: true },
+)
 
 // 阅读进度由 EpubReader 的 relocated 事件驱动（库级定位），受控传给顶栏进度条
 const progress = ref(0)
@@ -63,6 +94,11 @@ function onNavigate(slug) {
     />
     <chapter-nav :prev="neighbor.prev" :next="neighbor.next" />
   </article>
+
+  <div v-else-if="loading" class="not-found">
+    <h1>载入中…</h1>
+    <p>正在加载「{{ slug }}」。</p>
+  </div>
 
   <div v-else class="not-found">
     <h1>章节不存在</h1>

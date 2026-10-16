@@ -34,11 +34,22 @@ const prevLabel = computed(() => (atStart.value && props.prevSlug ? '«' : '‹'
 const nextDisabled = computed(() => error.value || (atEnd.value && !props.nextSlug))
 const prevDisabled = computed(() => error.value || (atStart.value && !props.prevSlug))
 
+// 以库当前的真实定位为准判断边界，避免 relocated 异步更新与章节切换竞态
+// 导致的 atEnd/atStart 滞后（单章为独立 EPUB，atEnd=本章末页、atStart=本章首页）
+function boundaryState() {
+  if (rendition && typeof rendition.currentLocation === 'function') {
+    const loc = rendition.currentLocation()
+    if (loc) return { atStart: !!loc.atStart, atEnd: !!loc.atEnd }
+  }
+  return { atStart: atStart.value, atEnd: atEnd.value }
+}
+
 // 统一的"往后翻"：未到末页→库内翻页；到末页且有下一章→跳下一章
 function goNext() {
   if (error.value || !rendition) return
-  if (atEnd.value) {
-    if (props.nextSlug) emit('navigate', props.nextSlug)
+  const { atEnd: ae } = boundaryState()
+  if (ae && props.nextSlug) {
+    emit('navigate', props.nextSlug)
     return
   }
   rendition.next()
@@ -46,8 +57,9 @@ function goNext() {
 // 统一的"往前翻"：未到首页→库内翻页；到首页且有上一章→跳上一章
 function goPrev() {
   if (error.value || !rendition) return
-  if (atStart.value) {
-    if (props.prevSlug) emit('navigate', props.prevSlug)
+  const { atStart: as } = boundaryState()
+  if (as && props.prevSlug) {
+    emit('navigate', props.prevSlug)
     return
   }
   rendition.prev()
@@ -70,6 +82,7 @@ function onKey(e) {
 // 说明：epub-ts 内置 Touch 管理器监听的是 iframe 外层容器，收不到 iframe 内 touch，
 // 故章节内滑动必须自己在 contentDocument 上监听；点击翻页也直接在 touchend 判定，
 // 不依赖移动端合成的 click 事件（在 srcdoc + sandbox 的 iframe 内某些浏览器不可靠）。
+// 注意：已通过 renderTo({ snap: false }) 关闭库内置滑动翻页，这里即为手势的唯一来源。
 function setupInteractions() {
   const iframe = viewer.value?.querySelector('iframe')
   const doc = iframe?.contentDocument
@@ -103,26 +116,24 @@ function setupInteractions() {
     const dx = t.clientX - x0
     const dy = t.clientY - y0
     const dt = Date.now() - t0
-    if (dt > 800) return
-    if (Math.abs(dx) >= 40 && Math.abs(dx) >= Math.abs(dy)) {
-      // 横向滑动 → 翻页 / 边界跳章
+    if (dt > 1000) return // 超过 1s 视为长按/停顿，不翻页
+    const adx = Math.abs(dx)
+    const ady = Math.abs(dy)
+    if (adx >= 25 && adx > ady * 1.3) {
+      // 明确横向滑动 → 翻页 / 边界跳章（方向即仿真书手势）
       lastTouchAction = Date.now()
-      if (dx < 0) {
-        if (atEnd.value && props.nextSlug) emit('navigate', props.nextSlug)
-        else goNext()
-      } else {
-        if (atStart.value && props.prevSlug) emit('navigate', props.prevSlug)
-        else goPrev()
-      }
-    } else if (dt < 350) {
-      // 轻微位移 + 短时间 → 视为轻触（tap），按起始 x 分左右半区翻页
+      if (dx < 0) goNext()
+      else goPrev()
+    } else if (dt < 500 && adx < 12 && ady < 12) {
+      // 位移很小且时间短 → 视为轻触（tap），按起始 x 分左右半区翻页
       lastTouchAction = Date.now()
       handleTap(x0)
     }
     // 纵向滚动或长按不处理，避免误翻页 / 干扰文本选择
   }
   doc.addEventListener('click', onClick, { passive: true })
-  doc.addEventListener('touchstart', onStart, { passive: true })
+  // touchstart 用 capture 阶段，确保即使其他监听调用了 stopPropagation 也能先抓到起点坐标
+  doc.addEventListener('touchstart', onStart, { passive: true, capture: true })
   doc.addEventListener('touchend', onEnd, { passive: true })
   swipeCleanup = () => {
     doc.removeEventListener('click', onClick)
@@ -183,6 +194,11 @@ async function init() {
       height: viewer.value.clientHeight || '100%',
       spread: 'none',
       flow: 'paginated',
+      // 关闭库内置的滑动翻页（snap）：epub-ts 在 touch 设备上会自动启用一套
+      // Touch 管理器自己处理滑动切页，会与下方自己在 contentDocument 上挂的
+      // 手势抢事件，导致移动端滑动/点击翻页时灵时不灵甚至跳页。关掉后由我们
+      // 的 setupInteractions 统一接管所有手势，行为单一、可预测。
+      snap: false,
       // 开启 allow-scripts：epub-ts 会把内容渲染进 sandbox 的 srcdoc iframe，
       // 其内部渲染/主题注入脚本需要 allow-scripts，否则浏览器拦截并报
       // "Blocked script execution in 'about:srcdoc'"，翻页与主题也会失效
