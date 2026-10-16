@@ -6,14 +6,15 @@
     <meta name="description" content="《签到修仙：从废柴到万古一帝》——废柴少年获得系统后逆袭的修仙爽文在线阅读。" />
     <title>签到修仙：从废柴到万古一帝</title>
     <script>
-      // 早期注入主题，避免首屏白闪；与 useTheme 共用 'xx-theme' 键（存的是主题 key）
+      // 早期注入主题，避免首屏白闪；与 useTheme 共用 'xx-theme' 键（存的是主题 key）。
+      // 色值需与 theme.js 中的 night / 白天默认主题保持同步。
       (function () {
         try {
           var k = localStorage.getItem('xx-theme');
           var night = k === 'night' || (!k && window.matchMedia('(prefers-color-scheme: dark)').matches);
           var el = document.documentElement;
           el.setAttribute('data-theme', night ? 'dark' : 'light');
-          el.style.backgroundColor = night ? '#1a1a1a' : '#f4ecd8';
+          el.style.backgroundColor = night ? '#15171a' : '#ffffff';
         } catch (e) {}
       })();
     </script>

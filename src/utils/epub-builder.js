@@ -1,28 +1,29 @@
 import JSZip from 'jszip'
 
 // 阅读区基础排版（字号/行高由 EpubReader 通过 epub-ts themes.override 动态控制，这里只定版式）
+// 字体走系统无衬线，与外壳保持一致；引述/分隔线用低对比中性色而非强调色，减少视觉噪声。
 const READER_CSS = `
 body {
-  font-family: 'Songti SC','STSong','Noto Serif CJK SC','Source Han Serif SC','SimSun',serif;
+  font-family: -apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC',system-ui,sans-serif;
   line-height: 1.9;
   margin: 0;
-  padding: 6% 9%;
+  padding: 5% 8%;
   text-align: justify;
+  -webkit-font-smoothing: antialiased;
 }
-h1 { font-size: 1.8em; text-align: center; margin: 0.2em 0 0.8em; }
-h2 { font-size: 1.3em; border-left: 4px solid currentColor; padding-left: 12px; margin: 1.2em 0 0.6em; }
-h3 { font-size: 1.1em; margin: 1em 0 0.5em; }
+h1 { font-size: 1.6em; font-weight: 700; text-align: center; margin: 0.2em 0 1em; letter-spacing: -0.01em; }
+h2 { font-size: 1.2em; font-weight: 650; margin: 1.4em 0 0.6em; }
+h3 { font-size: 1.05em; font-weight: 600; margin: 1.1em 0 0.5em; opacity: 0.85; }
 p { text-indent: 2em; margin: 0.55em 0; }
 blockquote {
-  border-left: 4px solid #c9a96e;
-  padding: 8px 16px;
-  margin: 1em 0;
-  font-style: italic;
-  opacity: 0.88;
+  border-left: 3px solid rgba(128,128,128,0.35);
+  padding: 6px 0 6px 16px;
+  margin: 1.1em 0;
+  opacity: 0.82;
 }
-hr { border: none; border-top: 1px dashed #999; margin: 1.6em 0; }
-table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-th, td { border: 1px solid #9a8c78; padding: 6px 10px; }
+hr { border: none; border-top: 1px solid rgba(128,128,128,0.25); margin: 1.8em 0; }
+table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.92em; }
+th, td { border: 1px solid rgba(128,128,128,0.3); padding: 6px 10px; }
 a { text-decoration: none; }
 `
 

@@ -1,28 +1,94 @@
 // 阅读主题注册表：单一来源，驱动「阅读器内文 + 外壳 Naive UI + 全局 CSS 变量」。
 //
-// 5 套主题的背景/文字严格按需求配置：
-//   light 纯白 / sepia 棕黄护眼 / paper 宣纸浅黄 / green 豆沙浅绿 / night 深灰夜间
-// 白天默认首选 sepia，夜间默认首选 night（见 useTheme 的初始值）。
+// 视觉定调：现代极简。
+// 底色走中性灰阶（纯白 / 微暖白 / 宣纸暖白 / 青瓷淡绿 / 深夜墨黑），
+// 强调色统一为单一「墨青」色相，不再使用装饰性的暗金与砖红，
+// 避免多色相在这类低饱和背景上互相打架造成的陈旧感。
+//
+// 白天默认 light；系统偏好深色时默认 night（见 useTheme 的 initialKey）。
 
-export const THEME_LIST = [
-  { key: 'light', name: '纯白', bg: '#ffffff', text: '#222222', desc: '强光白天' },
-  { key: 'sepia', name: '棕黄护眼', bg: '#f4ecd8', text: '#5c4b38', desc: '最通用护眼' },
-  { key: 'paper', name: '宣纸浅黄', bg: '#fff9e8', text: '#333333', desc: '仿纸质书' },
-  { key: 'green', name: '豆沙浅绿', bg: '#C7EDCC', text: '#2c4230', desc: '经典电脑护眼色' },
-  { key: 'night', name: '深灰夜间', bg: '#1a1a1a', text: '#cccccc', desc: 'LCD 屏幕夜间首选' },
-]
-
-// 外壳配套令牌（bg-elev 用于卡片/弹层；textSoft 用于次要文字；accent 用于强调色）
-const SHELL = {
-  light: { bgElev: '#f5f5f5', textSoft: '#555555', accent: '#9e3d26', accentSoft: '#b8603f', border: '#e5e5e5', shadow: 'rgba(0,0,0,0.08)' },
-  sepia: { bgElev: '#faf4e6', textSoft: '#7a6a52', accent: '#9e3d26', accentSoft: '#b8603f', border: '#e0d4ba', shadow: 'rgba(92,75,56,0.08)' },
-  paper: { bgElev: '#fffdf5', textSoft: '#666666', accent: '#9e3d26', accentSoft: '#b8603f', border: '#e8e0c8', shadow: 'rgba(51,51,51,0.08)' },
-  green: { bgElev: '#d6f2da', textSoft: '#4a6b50', accent: '#9e3d26', accentSoft: '#b8603f', border: '#a9d8b0', shadow: 'rgba(44,66,48,0.10)' },
-  night: { bgElev: '#242424', textSoft: '#9a8c78', accent: '#d97757', accentSoft: '#e08c6c', border: '#333333', shadow: 'rgba(0,0,0,0.5)' },
+// 墨青色阶：主色偏深保证正文对比度，浅色辅色用于 hover 与浅色描边
+const TEAL = {
+  day: '#0f766e',
+  dayHover: '#12857c',
+  daySoft: '#5eb8ae',
+  night: '#5eead4',
+  nightHover: '#7bf0de',
+  nightSoft: '#2d7069',
 }
 
-export const GOLD = '#c9a96e'
-export const DEFAULT_DAY = 'sepia'
+// 主题定义。bg/text 直接用于阅读器内文，务必保证足够对比度。
+export const THEME_LIST = [
+  { key: 'light', name: '极简白', bg: '#ffffff', text: '#1c1c1e', desc: '白天首选' },
+  { key: 'paper', name: '暖纸白', bg: '#faf8f5', text: '#2b2823', desc: '柔和护眼' },
+  { key: 'sepia', name: '宣纸', bg: '#f5f1e8', text: '#33302a', desc: '仿纸质书' },
+  { key: 'green', name: '青瓷', bg: '#eef4f2', text: '#22322e', desc: '淡雅护眼' },
+  { key: 'night', name: '深夜', bg: '#15171a', text: '#c9ccd1', desc: '夜间护眼' },
+]
+
+// 外壳配套令牌。
+// bgElev 比 bg 略亮（暗色主题下略暗）形成层次；border 用低对比中性色而非高饱和色。
+const SHELL = {
+  light: {
+    bgElev: '#ffffff',
+    textSoft: '#6b7280',
+    accent: TEAL.day,
+    accentSoft: TEAL.dayHover,
+    accentInk: '#065f56',
+    border: '#e6e7e9',
+    borderStrong: '#d3d5d8',
+    shadow: 'rgba(16,24,40,0.06)',
+    shadowLg: 'rgba(16,24,40,0.10)',
+  },
+  paper: {
+    bgElev: '#ffffff',
+    textSoft: '#6d665c',
+    accent: TEAL.day,
+    accentSoft: TEAL.dayHover,
+    accentInk: '#065f56',
+    border: '#e9e4dc',
+    borderStrong: '#d8d2c8',
+    shadow: 'rgba(43,40,35,0.06)',
+    shadowLg: 'rgba(43,40,35,0.10)',
+  },
+  sepia: {
+    bgElev: '#fffdf8',
+    textSoft: '#726b5f',
+    accent: TEAL.day,
+    accentSoft: TEAL.dayHover,
+    accentInk: '#065f56',
+    border: '#e5ded1',
+    borderStrong: '#d2c9b9',
+    shadow: 'rgba(51,48,42,0.07)',
+    shadowLg: 'rgba(51,48,42,0.11)',
+  },
+  green: {
+    bgElev: '#ffffff',
+    textSoft: '#5c6f69',
+    accent: TEAL.day,
+    accentSoft: TEAL.dayHover,
+    accentInk: '#065f56',
+    border: '#dce7e3',
+    borderStrong: '#c4d6d0',
+    shadow: 'rgba(34,50,46,0.07)',
+    shadowLg: 'rgba(34,50,46,0.11)',
+  },
+  night: {
+    bgElev: '#1c1f24',
+    textSoft: '#9aa1a9',
+    accent: TEAL.night,
+    accentSoft: TEAL.nightHover,
+    accentInk: '#99f6e0',
+    border: '#2a2f36',
+    borderStrong: '#383f47',
+    shadow: 'rgba(0,0,0,0.40)',
+    shadowLg: 'rgba(0,0,0,0.55)',
+  },
+}
+
+// 保留导出以兼容既有引用（不再作为装饰色使用，仅当无强调色时的兜底）
+export const GOLD = '#0f766e'
+export const DEFAULT_DAY = 'light'
 export const DEFAULT_NIGHT = 'night'
 
 export function isDarkKey(key) {
@@ -30,10 +96,11 @@ export function isDarkKey(key) {
 }
 
 export function getTheme(key) {
-  return THEME_LIST.find((t) => t.key === key) || THEME_LIST[1]
+  return THEME_LIST.find((t) => t.key === key) || THEME_LIST[0]
 }
 
-// 阅读器（epub-ts）主题：直接注入 iframe 内文。标题沿用正文色，保持护眼一致性。
+// 阅读器（epub-ts）主题：注入 iframe 内文。
+// 标题与正文同色、靠字重区分，符合极简排版；段落松紧由 getReaderCss 控制。
 export function getReaderTheme(key) {
   const t = getTheme(key)
   return {
@@ -45,10 +112,9 @@ export function getReaderTheme(key) {
   }
 }
 
-// Naive UI 主题覆盖（外壳组件：按钮/抽屉/下拉/开关）
 export function getNavOverrides(key) {
   const t = getTheme(key)
-  const s = SHELL[key] || SHELL.sepia
+  const s = SHELL[key] || SHELL.light
   return {
     common: {
       primaryColor: s.accent,
@@ -63,17 +129,16 @@ export function getNavOverrides(key) {
       textColor2: s.textSoft,
       textColor3: s.textSoft,
       borderColor: s.border,
-      borderRadius: '10px',
+      borderRadius: '12px',
       fontFamily:
-        "'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',system-ui,sans-serif",
+        "-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC',system-ui,sans-serif",
     },
   }
 }
 
-// 外壳 CSS 变量：驱动 global.css 的设计令牌，使整页（导航/目录/卡片）随主题变化
 export function getShellVars(key) {
   const t = getTheme(key)
-  const s = SHELL[key] || SHELL.sepia
+  const s = SHELL[key] || SHELL.light
   return {
     '--bg': t.bg,
     '--bg-elev': s.bgElev,
@@ -81,17 +146,19 @@ export function getShellVars(key) {
     '--text-soft': s.textSoft,
     '--accent': s.accent,
     '--accent-soft': s.accentSoft,
-    '--gold': GOLD,
+    '--accent-ink': s.accentInk,
     '--border': s.border,
+    '--border-strong': s.borderStrong,
     '--shadow': s.shadow,
+    '--shadow-lg': s.shadowLg,
   }
 }
 
 // 行距档位（作用于阅读器内文与回退阅读器）
 export const LINE_HEIGHT_OPTIONS = [
-  { label: '紧凑', value: 1.6 },
+  { label: '紧凑', value: 1.7 },
   { label: '标准', value: 1.9 },
-  { label: '宽松', value: 2.3 },
+  { label: '宽松', value: 2.2 },
 ]
 
 export function getLineHeightLabel(v) {

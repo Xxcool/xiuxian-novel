@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import {
+  THEME_LIST,
   getTheme,
   getShellVars,
   isDarkKey,
@@ -9,10 +10,17 @@ import {
 
 const STORAGE_KEY = 'xx-theme'
 
+// 严格查找：找不到返回 null。
+// 不能用 getTheme() 做校验——它有「找不到就返回默认主题」的兜底语义，
+// 会导致已在新版本中移除的历史 key 被误判为合法。
+function findTheme(key) {
+  return THEME_LIST.find((t) => t.key === key) || null
+}
+
 function initialKey() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored && getTheme(stored)) return stored
+    if (stored && findTheme(stored)) return stored
   } catch (e) {
     /* 忽略隐私模式等读取失败 */
   }
@@ -48,10 +56,10 @@ export function useTheme() {
     themeKey,
     isDark: computed(() => isDarkKey(themeKey.value)),
     setTheme: (k) => {
-      if (getTheme(k)) themeKey.value = k
+      if (findTheme(k)) themeKey.value = k
     },
     cycleTheme: () => {
-      const order = ['light', 'sepia', 'paper', 'green', 'night']
+      const order = THEME_LIST.map((t) => t.key)
       const i = order.indexOf(themeKey.value)
       themeKey.value = order[(i + 1) % order.length]
     },

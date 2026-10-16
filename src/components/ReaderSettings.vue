@@ -116,30 +116,34 @@ const scaleKeys = Object.keys(SCALE_LABELS)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   padding: 12px 4px;
   border-radius: 12px;
   border: 1.5px solid var(--border);
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease),
+    border-color 0.16s var(--ease);
   min-height: 64px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+.theme-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
 }
 .theme-card .theme-name {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
 }
 .theme-card .theme-desc {
   font-size: 10px;
-  opacity: 0.75;
+  opacity: 0.7;
 }
 .theme-card.active {
   box-shadow: 0 0 0 2px var(--accent);
-  transform: translateY(-1px);
+  border-color: var(--accent);
 }
 .seg {
   display: flex;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 60%, var(--bg-elev));
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -149,10 +153,10 @@ const scaleKeys = Object.keys(SCALE_LABELS)
   padding: 11px 0;
   border: none;
   background: transparent;
-  color: var(--text);
+  color: var(--text-soft);
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease);
 }
 .seg-item + .seg-item {
   border-left: 1px solid var(--border);
@@ -162,6 +166,7 @@ const scaleKeys = Object.keys(SCALE_LABELS)
   color: #fff;
 }
 .seg-item:not(.active):hover {
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
 }
 </style>

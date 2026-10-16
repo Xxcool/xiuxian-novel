@@ -1,11 +1,13 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { getChapterRaw, prefetchChapters } from '../data/loader'
 import { getNeighbor } from '../data/chapters'
 import { useTheme } from '../composables/useTheme'
 import { useReaderSettings } from '../composables/useReaderSettings'
+import { useImmersive } from '../composables/useImmersive'
+import { useReadingProgress } from '../composables/useReadingProgress'
 import ReadingProgress from '../components/ReadingProgress.vue'
 import ChapterNav from '../components/ChapterNav.vue'
 import EpubReader from '../components/EpubReader.vue'
@@ -14,6 +16,8 @@ const route = useRoute()
 const router = useRouter()
 const { themeKey } = useTheme()
 const { scale, lineHeight } = useReaderSettings()
+const { immersive, toggle: toggleImmersive, exit: exitImmersive } = useImmersive()
+const { record, markRead } = useReadingProgress()
 
 // slug 必须做成响应式：同一 Chapter 组件在章节间跳转时会被 Vue Router 复用，
 // 若用普通 const 捕获 route.params.slug，切换章节后内容/相邻章节不会更新（表现为“点了下一章没跳转”）
@@ -36,6 +40,7 @@ watch(
       if (loadedSlug.value !== s) return
       raw.value = text
     })
+    markRead(s)
   },
   { immediate: true },
 )
@@ -69,18 +74,40 @@ const chapterTitle = computed(() => {
 
 function onProgress(p) {
   progress.value = p
+  // 记住本章读到哪，供首页「继续阅读」使用
+  record(slug.value, p, chapterTitle.value)
 }
 
 // 阅读器在末页/首页边界请求跳转到相邻章节（由 EpubReader 的 goNext/goPrev 触发）
-function onNavigate(slug) {
-  if (!slug) return
-  router.push(`/chapter/${encodeURIComponent(slug)}`)
+function onNavigate(s) {
+  if (!s) return
+  router.push(`/chapter/${encodeURIComponent(s)}`)
 }
+
+// 章节内 switch：Esc 退出沉浸模式
+function onKey(e) {
+  if (e.key === 'Escape' && immersive.value) {
+    e.preventDefault()
+    exitImmersive()
+  }
+}
+onMounted(() => window.addEventListener('keydown', onKey))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  // 离开阅读页务必退出沉浸模式，否则回到首页顶栏是隐藏的
+  exitImmersive()
+})
 </script>
 
 <template>
   <article v-if="found" class="chapter">
     <reading-progress :progress="progress" />
+
+    <header class="chapter-head" :class="{ 'is-hidden': immersive }">
+      <span class="ch-num">{{ neighbor.self?.num || '' }}</span>
+      <span class="ch-title">{{ chapterTitle }}</span>
+    </header>
+
     <epub-reader
       :title="chapterTitle"
       :html="html"
@@ -89,10 +116,17 @@ function onNavigate(slug) {
       :line-height="lineHeight"
       :next-slug="neighbor.next?.slug || ''"
       :prev-slug="neighbor.prev?.slug || ''"
+      :immersive="immersive"
       @progress="onProgress"
       @navigate="onNavigate"
+      @toggle-ui="toggleImmersive"
     />
-    <chapter-nav :prev="neighbor.prev" :next="neighbor.next" />
+
+    <div class="chapter-nav-wrap" :class="{ 'is-hidden': immersive }">
+      <chapter-nav :prev="neighbor.prev" :next="neighbor.next" />
+    </div>
+
+    <p v-if="immersive" class="immersive-hint">再次轻触屏幕中央可唤出界面</p>
   </article>
 
   <div v-else-if="loading" class="not-found">
@@ -106,3 +140,15 @@ function onNavigate(slug) {
     <router-link class="back-link" to="/">← 返回目录</router-link>
   </div>
 </template>
+
+<style scoped>
+.chapter-head {
+  transition: opacity var(--dur-normal) var(--ease),
+    transform var(--dur-normal) var(--ease);
+}
+.chapter-head.is-hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+</style>

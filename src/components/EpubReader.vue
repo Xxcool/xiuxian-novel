@@ -14,8 +14,18 @@ const props = defineProps({
   // 相邻章节 slug：到达本章末尾/开头时，翻页箭头与边界滑动会跳转到对应章节
   nextSlug: { type: String, default: '' },
   prevSlug: { type: String, default: '' },
+  // 沉浸模式下隐藏悬浮翻页箭头等 chrome
+  immersive: { type: Boolean, default: false },
 })
-const emit = defineEmits(['progress', 'ready', 'error', 'navigate'])
+const emit = defineEmits(['progress', 'ready', 'error', 'navigate', 'toggle-ui'])
+
+// 点击热区划分（占阅读区宽度比例）：
+//   左侧 EDGE_RATIO → 上一页
+//   右侧 EDGE_RATIO → 下一页
+//   中间区域        → 切换沉浸模式（隐藏/显示界面）
+// 中间区留宽是为了让读者能顺手唤出界面，同时两侧仍保有足够翻页面积，
+// 滑动翻页也始终可用，不会因为热区划分而失效。
+const EDGE_RATIO = 0.28
 
 const viewer = ref(null)
 const loading = ref(true)
@@ -93,10 +103,12 @@ function setupInteractions() {
   let t0 = 0
   let lastTouchAction = 0 // 防触摸后合成 click 重复触发翻页
 
-  // 左半区上一页、右半区下一页
+  // 左边缘上一页、右边缘下一页、中间区域切换沉浸模式
   const handleTap = (x) => {
-    if (x < pageWidth() / 2) goPrev()
-    else goNext()
+    const w = pageWidth()
+    if (x < w * EDGE_RATIO) goPrev()
+    else if (x > w * (1 - EDGE_RATIO)) goNext()
+    else emit('toggle-ui')
   }
   // 桌面端鼠标点击：按左右半区（触摸产生的动作后 500ms 内的合成 click 一律忽略）
   const onClick = (e) => {
@@ -318,11 +330,14 @@ defineExpose({ goNext, goPrev })
     </div>
 
     <!-- 上一页 / 下一页：在边界时跳转到相邻章节（图标随状态变化） -->
-    <div class="epub-page-nav" :class="{ disabled: error }">
+    <div
+      class="epub-page-nav"
+      :class="{ disabled: error, 'is-hidden': immersive }"
+    >
       <button
         class="epub-page-btn"
         :disabled="prevDisabled"
-        @click="goPrev"
+        @click.stop="goPrev"
         :aria-label="prevLabel === '«' ? '上一章' : '上一页'"
       >
         {{ prevLabel }}
@@ -330,7 +345,7 @@ defineExpose({ goNext, goPrev })
       <button
         class="epub-page-btn"
         :disabled="nextDisabled"
-        @click="goNext"
+        @click.stop="goNext"
         :aria-label="nextLabel === '»' ? '下一章' : '下一页'"
       >
         {{ nextLabel }}
@@ -345,7 +360,7 @@ defineExpose({ goNext, goPrev })
   width: 100%;
   height: 74vh;
   min-height: 480px;
-  background: var(--bg);
+  background: transparent;
 }
 .epub-viewer {
   width: 100%;
@@ -406,18 +421,28 @@ defineExpose({ goNext, goPrev })
   opacity: 0.4;
   pointer-events: none;
 }
+/* 沉浸模式：箭头淡出下沉，避免干扰阅读 */
+.epub-page-nav.is-hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity var(--dur-normal) var(--ease),
+    transform var(--dur-normal) var(--ease);
+}
 .epub-page-btn {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: var(--bg-elev);
-  color: var(--text);
-  font-size: 1.3rem;
+  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--text-soft);
+  font-size: 1.15rem;
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 2px 10px var(--shadow);
-  transition: all 0.2s ease;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease),
+    border-color 0.18s var(--ease);
 }
 .epub-page-btn:hover:not(:disabled) {
   background: var(--accent);
@@ -425,7 +450,7 @@ defineExpose({ goNext, goPrev })
   border-color: var(--accent);
 }
 .epub-page-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: default;
 }
 </style>

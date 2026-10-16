@@ -58,16 +58,15 @@ const homeLink = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin: 18px auto 8px;
-  padding: 6px;
+  gap: 4px;
+  padding: 5px;
   width: fit-content;
   max-width: 92vw;
+  margin: 0 auto;
   border-radius: 999px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  box-shadow: 0 4px 14px var(--shadow);
-  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px var(--shadow);
 }
 
 .nav-btn {
@@ -75,23 +74,22 @@ const homeLink = computed(() =>
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 42px;
-  padding: 0 20px;
+  min-height: 40px;
+  padding: 0 18px;
   border-radius: 999px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text-soft);
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color var(--dur-fast) ease,
-    color var(--dur-fast) ease, transform var(--dur-fast) ease,
-    box-shadow var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
 .nav-btn.side:hover:not(.disabled) {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--accent);
 }
 
@@ -100,19 +98,20 @@ const homeLink = computed(() =>
 }
 
 .nav-btn.disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: default;
 }
 
+/* 中间「目录」改为轻量描边而非实心填充，弱化重心 */
 .nav-btn.center {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 .nav-btn.center:hover {
-  background: var(--accent-soft);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 36%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent);
 }
 
 .nav-btn.center:active {
@@ -120,9 +119,9 @@ const homeLink = computed(() =>
 }
 
 .nav-icon {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   line-height: 1;
-  opacity: 0.9;
+  opacity: 0.85;
 }
 
 .nav-text {
@@ -130,18 +129,10 @@ const homeLink = computed(() =>
 }
 
 @media (max-width: 768px) {
-  .chapter-nav {
-    gap: 6px;
-    padding: 5px;
-    margin-top: 14px;
-  }
   .nav-btn {
-    min-height: 46px;
-    padding: 0 18px;
-    font-size: 0.92rem;
-  }
-  .nav-icon {
-    font-size: 1.1rem;
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 0.88rem;
   }
 }
 </style>

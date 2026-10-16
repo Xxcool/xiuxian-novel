@@ -4,6 +4,9 @@ import { useRouter, useRoute } from 'vue-router'
 import { NDrawer, NDrawerContent } from 'naive-ui'
 import ChapterList from './ChapterList.vue'
 import ReaderSettings from './ReaderSettings.vue'
+import { useImmersive } from '../composables/useImmersive'
+
+const { immersive, exit: exitImmersive } = useImmersive()
 
 const router = useRouter()
 const route = useRoute()
@@ -21,10 +24,24 @@ function goHome() {
 </script>
 
 <template>
-  <nav class="app-nav">
-    <a class="brand" href="/" @click.prevent="goHome">签到修仙</a>
+  <nav class="app-nav" :class="{ 'is-hidden': immersive }">
+    <a class="brand" href="/" @click.prevent="goHome">
+      <span class="mark"></span>
+      签到修仙
+    </a>
 
     <div class="nav-actions">
+      <!-- 退出沉浸模式：隐藏顶栏后，桌面端需要一个可点击的出口 -->
+      <button
+        v-if="immersive"
+        class="nav-icon-btn"
+        type="button"
+        @click="exitImmersive"
+        aria-label="退出沉浸阅读"
+        title="退出沉浸阅读 (Esc)"
+      >
+        ⤢
+      </button>
       <!-- 章节列表（点击触发右侧抽屉，不与翻页手势冲突） -->
       <button
         class="nav-icon-btn"
