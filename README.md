@@ -25,24 +25,9 @@
 ## 📸 界面与交互预览
 
 <div align="center">
-  <table>
-    <tr>
-      <td width="64%" align="center" valign="middle">
-        <strong>💻 Web 桌面端（沉浸大景 · 气魄磅礴）</strong>
-        <br/><br/>
-        <img src="docs/screenshots/web-preview.jpg" alt="Web 桌面端设计图" />
-        <br/>
-        <sub>通栏大幅水墨山岚景图 · 顶栏朱文印章 · 双列优雅目录板</sub>
-      </td>
-      <td width="36%" align="center" valign="middle">
-        <strong>📱 H5 移动端（国风雅致 · 随身畅读）</strong>
-        <br/><br/>
-        <img src="docs/screenshots/mobile-preview.jpg" alt="H5 移动端设计图" />
-        <br/>
-        <sub>自适应掌上视口 · 流式竖排触控 · 独立沉浸 App 体验</sub>
-      </td>
-    </tr>
-  </table>
+  <img src="docs/screenshots/overview.png" width="100%" alt="签到修仙全场景界面预览（Web 首页 · Web 正文 · H5 移动阅读）" />
+  <br/><br/>
+  <sub>🌟 一张图全览：Web 桌面端水墨大景首页 + Web 典雅正文排版 + H5 移动端随身畅读</sub>
 </div>
 
 ---
