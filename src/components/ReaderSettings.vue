@@ -130,21 +130,28 @@ const currentFontFamilyLabel = computed(() => {
           </div>
         </section>
 
-        <!-- 4. 行距调节 -->
+        <!-- 4. 行距调节（方案 A：微信读书/掌阅同款可视化疏密线条图标） -->
         <section class="set-group">
           <div class="set-head">
             <span class="set-label">行距</span>
             <span class="set-value">{{ getLineHeightLabel(lineHeight) }}</span>
           </div>
-          <div class="seg">
+          <div class="line-height-tabs">
             <button
               v-for="o in LINE_HEIGHT_OPTIONS"
               :key="o.value"
-              class="seg-item"
-              :class="{ active: lineHeight === o.value }"
+              type="button"
+              class="lh-pill"
+              :class="{ active: Math.abs(lineHeight - o.value) < 0.08 }"
+              :title="`行距：${o.label}`"
+              :aria-label="`行距：${o.label}`"
               @click="setLineHeight(o.value)"
             >
-              {{ o.label }}
+              <div class="lh-icon" :class="'density-' + o.density">
+                <span class="lh-bar"></span>
+                <span class="lh-bar"></span>
+                <span class="lh-bar"></span>
+              </div>
             </button>
           </div>
         </section>
@@ -328,33 +335,85 @@ const currentFontFamilyLabel = computed(() => {
   border-color: var(--accent);
 }
 
-/* 4. 行距分段按钮 */
-.seg {
+/* 4. 行距可视化胶囊按钮（方案 A：疏密线条图标） */
+.line-height-tabs {
   display: flex;
-  background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  border-radius: 12px;
+  gap: 6px;
 }
-.seg-item {
+:root[data-theme='night'] .line-height-tabs {
+  background: rgba(255, 255, 255, 0.06);
+}
+.lh-pill {
   flex: 1;
-  padding: 10px 0;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
   border: none;
   background: transparent;
-  color: var(--text-soft);
-  font-size: 13.5px;
   cursor: pointer;
-  transition: background 0.16s var(--ease), color 0.16s var(--ease);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.seg-item + .seg-item {
-  border-left: 1px solid var(--border);
+.lh-pill:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.03);
 }
-.seg-item.active {
-  background: var(--accent);
-  color: #fff;
+:root[data-theme='night'] .lh-pill:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.04);
 }
-.seg-item:not(.active):hover {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--accent);
+.lh-pill.active {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+:root[data-theme='night'] .lh-pill.active {
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.lh-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+}
+.lh-bar {
+  display: block;
+  height: 2px;
+  border-radius: 1.5px;
+  background: var(--text-soft);
+  transition: background 0.2s, transform 0.2s;
+}
+.lh-bar:nth-child(1) {
+  width: 20px;
+}
+.lh-bar:nth-child(2) {
+  width: 26px;
+}
+.lh-bar:nth-child(3) {
+  width: 16px;
+}
+
+.lh-pill.active .lh-bar {
+  background: #111111;
+}
+:root[data-theme='night'] .lh-pill.active .lh-bar {
+  background: #ffffff;
+}
+
+/* 密实 (1.65) */
+.density-dense {
+  gap: 3.5px;
+}
+/* 标准 (1.9) */
+.density-normal {
+  gap: 6px;
+}
+/* 宽松 (2.2) */
+.density-loose {
+  gap: 9px;
 }
 </style>

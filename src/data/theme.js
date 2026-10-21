@@ -42,8 +42,12 @@ export function getNavOverrides(key) {
   } }
 }
 export const LINE_HEIGHT_OPTIONS = [
-  { label: '紧凑', value: 1.7 }, { label: '标准', value: 1.9 }, { label: '宽松', value: 2.2 },
+  { label: '紧凑', value: 1.65, density: 'dense' },
+  { label: '标准', value: 1.9, density: 'normal' },
+  { label: '宽松', value: 2.2, density: 'loose' },
 ]
 export function getLineHeightLabel(v) {
-  return LINE_HEIGHT_OPTIONS.find((o) => o.value === Number(v))?.label || '标准'
+  const num = Number(v)
+  const match = LINE_HEIGHT_OPTIONS.find((o) => Math.abs(o.value - num) < 0.1)
+  return match?.label || '标准'
 }

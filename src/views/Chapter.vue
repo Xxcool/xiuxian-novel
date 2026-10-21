@@ -76,8 +76,11 @@ const html = computed(() => {
   if (!raw.value) return ''
   const divider = raw.value.indexOf('\n---\n')
   const hasOutline = divider > 0 && raw.value.slice(0, divider).includes('**本章概要**')
-  const body = hasOutline ? raw.value.slice(divider + 5).trimStart() : raw.value
-  return marked.parse(body.replace(/^#\s+.+\n*/, '').trimStart())
+  let body = hasOutline ? raw.value.slice(divider + 5).trimStart() : raw.value
+  body = body.replace(/^#\s+.+\n*/, '').trimStart()
+  // 剥离正文中和末尾孤立的分割线标记（---, ***, ___），避免 marked 渲染为突兀且破坏沉浸感的灰色细横线 <hr>
+  body = body.replace(/^\s*[-*_]{3,}\s*$/gm, '')
+  return marked.parse(body)
 })
 const chapterTitle = computed(() => {
   const m = raw.value && raw.value.match(/^#\s+(.+)$/m)

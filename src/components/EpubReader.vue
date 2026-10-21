@@ -527,6 +527,9 @@ defineExpose({ goNext, goPrev })
   margin: 0 0 1.25em;
   text-indent: 0;
 }
+.page-body :deep(hr) {
+  display: none !important;
+}
 .page-body :deep(blockquote) {
   border-left: 3px solid rgba(128, 128, 128, 0.35);
   padding: 4px 0 4px 14px;

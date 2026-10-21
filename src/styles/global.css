@@ -247,9 +247,7 @@ input {
   display: none;
 }
 .reader-inner hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 32px 0;
+  display: none !important;
 }
 .reader-inner table {
   width: 100%;
