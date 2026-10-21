@@ -9,10 +9,10 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/favicon.png" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111D26" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1e2630" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8f7f2" />
     <script>
-      // 早期注入主题，避免首屏白闪；与 useTheme 共用 'xx-theme' 键（存的是主题 key）。
+      // 早期注入主题，避免首屏白闪；与 useTheme 共用 'xx-theme'键（存的是主题 key）。
       // 色值需与 theme.js 中的 night / 白天默认主题保持同步。
       (function () {
         try {
@@ -22,7 +22,7 @@
           var el = document.documentElement;
           el.setAttribute('data-theme', night ? 'dark' : 'light');
           el.setAttribute('data-theme-key', initial);
-          el.style.backgroundColor = initial === 'night' ? '#111D26' : initial === 'paper' ? '#f7f1e7' : '#f8f7f2';
+          el.style.backgroundColor = initial === 'night' ? '#1e2630' : initial === 'paper' ? '#f7f1e7' : '#f8f7f2';
         } catch (e) {}
       })();
     </script>
