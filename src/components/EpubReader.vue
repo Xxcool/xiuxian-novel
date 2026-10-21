@@ -38,6 +38,57 @@ let ro = null
 let initToken = 0
 let swipeCleanup = null
 
+// 仿真平滑翻页与纸张阴影状态
+const dragOffset = ref(0) // 移动端横向拖拽位移
+const isDragging = ref(false) // 是否处于手指拖拽中
+const isAnimating = ref(false) // 是否处于翻页动效进行中
+const turnDirection = ref('next') // 翻页方向：'next' | 'prev'
+const animPhase = ref('') // '' | 'turning' | 'entering'
+
+// 动态计算阴影透明度（支持手指拖拽时动态跟随加深）
+const shadowLeftOpacity = computed(() => {
+  if (isDragging.value && dragOffset.value > 0) {
+    return Math.min(0.85, (dragOffset.value / 80) * 0.85)
+  }
+  return isAnimating.value && turnDirection.value === 'prev' ? 0.75 : 0
+})
+
+const shadowRightOpacity = computed(() => {
+  if (isDragging.value && dragOffset.value < 0) {
+    return Math.min(0.85, (Math.abs(dragOffset.value) / 80) * 0.85)
+  }
+  return isAnimating.value && turnDirection.value === 'next' ? 0.75 : 0
+})
+
+// 容器动态样式与类名：位移、出入场贝塞尔缓动与微缩放
+const viewerStyle = computed(() => {
+  if (isDragging.value) {
+    return {
+      transform: `translate3d(${dragOffset.value}px, 0, 0)`,
+      transition: 'none',
+    }
+  }
+  if (animPhase.value === 'turning') {
+    const dx = turnDirection.value === 'next' ? -26 : 26
+    return {
+      transform: `translate3d(${dx}px, 0, 0) scale(0.992)`,
+      transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
+      opacity: 0.9,
+    }
+  }
+  if (animPhase.value === 'entering') {
+    return {
+      transform: 'translate3d(0, 0, 0) scale(1)',
+      transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.22s ease-out',
+      opacity: 1,
+    }
+  }
+  return {
+    transform: 'translate3d(0, 0, 0)',
+    transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
+  }
+})
+
 // EPUB 主题样式会按切换顺序追加，显式覆盖正文颜色可避免旧主题抢占优先级。
 function applyReaderColors(key) {
   const { bg, text } = getTheme(key)
@@ -61,7 +112,33 @@ function boundaryState() {
   return { atStart: atStart.value, atEnd: atEnd.value }
 }
 
-// 统一的"往后翻"：未到末页→库内翻页；到末页且有下一章→跳下一章
+// 仿真平滑翻页调度器（执行纸张出场微移 → rendition 翻页 → 纸张立体入场）
+function performTurn(dir, epubTurnFn) {
+  if (isAnimating.value) return
+  isAnimating.value = true
+  turnDirection.value = dir
+  animPhase.value = 'turning'
+
+  // 短暂微移出场后切页
+  setTimeout(() => {
+    try {
+      epubTurnFn()
+    } catch (e) {
+      /* noop */
+    }
+    // 次帧进入平滑归位阶段
+    requestAnimationFrame(() => {
+      animPhase.value = 'entering'
+      setTimeout(() => {
+        isAnimating.value = false
+        animPhase.value = ''
+        dragOffset.value = 0
+      }, 230)
+    })
+  }, 75)
+}
+
+// 统一的"往后翻"：未到末页→仿真滑页；到末页且有下一章→跳下一章
 function goNext() {
   if (error.value || !rendition) return
   const { atEnd: ae } = boundaryState()
@@ -69,9 +146,10 @@ function goNext() {
     emit('navigate', props.nextSlug)
     return
   }
-  rendition.next()
+  performTurn('next', () => rendition.next())
 }
-// 统一的"往前翻"：未到首页→库内翻页；到首页且有上一章→跳上一章
+
+// 统一的"往前翻"：未到首页→仿真滑页；到首页且有上一章→跳上一章
 function goPrev() {
   if (error.value || !rendition) return
   const { atStart: as } = boundaryState()
@@ -79,7 +157,7 @@ function goPrev() {
     emit('navigate', props.prevSlug)
     return
   }
-  rendition.prev()
+  performTurn('prev', () => rendition.prev())
 }
 
 function onKey(e) {
@@ -128,6 +206,23 @@ function setupInteractions() {
     x0 = t.clientX
     y0 = t.clientY
     t0 = Date.now()
+    dragOffset.value = 0
+    isDragging.value = false
+  }
+  const onMove = (e) => {
+    if (!e.touches || error.value || !rendition || isAnimating.value) return
+    const t = e.touches[0]
+    const dx = t.clientX - x0
+    const dy = t.clientY - y0
+    const adx = Math.abs(dx)
+    const ady = Math.abs(dy)
+    // 明确为横向拖拽（水平位移大于垂直位移）
+    if (adx > 10 && adx > ady * 1.2) {
+      isDragging.value = true
+      // 带阻尼的位移感，限制在 [-95, 95] 像素以内
+      const damp = 0.42
+      dragOffset.value = Math.max(-95, Math.min(95, dx * damp))
+    }
   }
   const onEnd = (e) => {
     if (error.value || !rendition) return
@@ -135,11 +230,26 @@ function setupInteractions() {
     const dx = t.clientX - x0
     const dy = t.clientY - y0
     const dt = Date.now() - t0
+
+    if (isDragging.value) {
+      isDragging.value = false
+      lastTouchAction = Date.now()
+      if (dx < -25) {
+        goNext()
+      } else if (dx > 25) {
+        goPrev()
+      } else {
+        // 位移不足，弹性回弹归位
+        dragOffset.value = 0
+      }
+      return
+    }
+
     if (dt > 1000) return // 超过 1s 视为长按/停顿，不翻页
     const adx = Math.abs(dx)
     const ady = Math.abs(dy)
     if (adx >= 25 && adx > ady * 1.3) {
-      // 明确横向滑动 → 翻页 / 边界跳章（方向即仿真书手势）
+      // 明确横向滑动 → 翻页 / 边界跳章
       lastTouchAction = Date.now()
       if (dx < 0) goNext()
       else goPrev()
@@ -148,15 +258,16 @@ function setupInteractions() {
       lastTouchAction = Date.now()
       handleTap(x0)
     }
-    // 纵向滚动或长按不处理，避免误翻页 / 干扰文本选择
   }
   doc.addEventListener('click', onClick, { passive: true })
   // touchstart 用 capture 阶段，确保即使其他监听调用了 stopPropagation 也能先抓到起点坐标
   doc.addEventListener('touchstart', onStart, { passive: true, capture: true })
+  doc.addEventListener('touchmove', onMove, { passive: true })
   doc.addEventListener('touchend', onEnd, { passive: true })
   swipeCleanup = () => {
     doc.removeEventListener('click', onClick)
     doc.removeEventListener('touchstart', onStart)
+    doc.removeEventListener('touchmove', onMove)
     doc.removeEventListener('touchend', onEnd)
   }
 }
@@ -318,9 +429,26 @@ defineExpose({ goNext, goPrev })
 </script>
 
 <template>
-  <div class="epub-reader">
-    <!-- 正常渲染容器 -->
-    <div ref="viewer" class="epub-viewer" :class="{ hidden: error }"></div>
+  <div class="epub-reader" :class="{ 'is-dragging': isDragging, 'is-animating': isAnimating }">
+    <!-- 纸张立体中缝与边缘微阴影（翻页或拖拽时浮现） -->
+    <div
+      class="page-shadow-edge left"
+      :style="{ opacity: shadowLeftOpacity }"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="page-shadow-edge right"
+      :style="{ opacity: shadowRightOpacity }"
+      aria-hidden="true"
+    ></div>
+
+    <!-- 正常渲染容器（支持平滑滑页、阻尼拖拽与弹性入场） -->
+    <div
+      ref="viewer"
+      class="epub-viewer"
+      :class="{ hidden: error }"
+      :style="viewerStyle"
+    ></div>
 
     <!-- 阅读器加载失败时回退到普通 HTML 滚动阅读，避免一直卡在“正在排版” -->
     <div
@@ -373,17 +501,45 @@ defineExpose({ goNext, goPrev })
   height: 74vh;
   min-height: 480px;
   background: transparent;
+  overflow: hidden;
 }
 .epub-viewer {
   width: 100%;
   height: 100%;
   background: transparent;
+  will-change: transform, opacity;
 }
 .epub-viewer.hidden {
   display: none;
 }
 .epub-viewer :deep(iframe) {
   border: none;
+}
+/* 仿真纸张立体边缘阴影 */
+.page-shadow-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38px;
+  pointer-events: none;
+  z-index: 4;
+  transition: opacity 0.18s ease-out;
+}
+.page-shadow-edge.left {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--shadow-lg, rgba(0, 0, 0, 0.32)) 80%, transparent),
+    transparent
+  );
+}
+.page-shadow-edge.right {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    color-mix(in srgb, var(--shadow-lg, rgba(0, 0, 0, 0.32)) 80%, transparent),
+    transparent
+  );
 }
 .reader-fallback {
   height: 100%;
