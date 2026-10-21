@@ -137,6 +137,53 @@ body:has(.chapter) .app-footer {
   display: flex;
   flex-direction: column;
 }
+.chapter-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 8px;
+  padding: 0 20px;
+  border: 0;
+  text-align: center;
+  flex-shrink: 0;
+  transition: opacity var(--dur-normal) var(--ease),
+    transform var(--dur-normal) var(--ease),
+    margin var(--dur-normal) var(--ease);
+}
+.chapter-head.is-hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  margin-top: -50px;
+}
+.chapter-head .ch-num {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--accent);
+  font-family: var(--serif);
+  font-size: 14px;
+  letter-spacing: .1em;
+}
+.chapter-head .ch-num::before, .chapter-head .ch-num::after {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent));
+}
+.chapter-head .ch-num::after {
+  transform: rotate(180deg);
+}
+.chapter-head .ch-title {
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  font-weight: 500;
+  letter-spacing: .06em;
+  margin: 0;
+}
 .chapter-nav-wrap {
   position: absolute;
   right: 0;
@@ -200,6 +247,22 @@ body:has(.chapter) .app-footer {
   .chapter-tabs button { min-width: 95px; }
   .chapter-grid { grid-template-columns: 1fr; }
   .chapter { min-height: 100dvh; height: 100dvh; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .chapter-head {
+    margin: 8px 0 4px;
+    gap: 4px;
+  }
+  .chapter-head .ch-num {
+    font-size: 12.5px;
+  }
+  .chapter-head .ch-num::before, .chapter-head .ch-num::after {
+    width: 22px;
+  }
+  .chapter-head .ch-title {
+    font-size: clamp(1.2rem, 5vw, 1.55rem);
+  }
+  .chapter-head.is-hidden {
+    margin-top: -44px;
+  }
   .chapter-nav-wrap { display: none; }
   .mobile-reader-controls {
     position: fixed;

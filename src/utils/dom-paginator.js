@@ -49,8 +49,6 @@ function splitParagraphToFit(pText, measurer, availableHeight) {
 /**
  * 分页核心函数
  * @param {Object} options
- * @param {string} options.title 章节标题
- * @param {string} [options.chapterNum] 章号（如 第 1 章）
  * @param {string} options.html Markdown解析后的 HTML
  * @param {number} options.width 容器宽度 (px)
  * @param {number} options.height 容器高度 (px)
@@ -59,8 +57,6 @@ function splitParagraphToFit(pText, measurer, availableHeight) {
  * @returns {Array<string>} 各页面的内部 HTML 片段数组
  */
 export function paginateHtml({
-  title,
-  chapterNum = '',
   html,
   width,
   height,
@@ -69,10 +65,10 @@ export function paginateHtml({
 }) {
   if (typeof document === 'undefined') return [html]
 
-  const PADDING_V = Math.max(30, Math.min(52, Math.round(height * 0.055)))
-  const PADDING_H = Math.max(20, Math.min(48, Math.round(width * 0.055)))
+  const PADDING_V = Math.max(20, Math.min(44, Math.round(height * 0.05)))
+  const PADDING_H = Math.max(20, Math.min(52, Math.round(width * 0.055)))
   const contentWidth = Math.max(200, width - PADDING_H * 2)
-  const contentHeight = Math.max(300, height - PADDING_V * 2)
+  const contentHeight = Math.max(260, height - PADDING_V * 2)
 
   // 创建不可见的离屏测量容器
   const measurer = document.createElement('div')
@@ -99,35 +95,7 @@ export function paginateHtml({
 
   const pages = []
   let currentPageHtml = []
-  let isFirstPage = true
-
-  // 解析优雅的章首：章号与章名分离
-  let numStr = (chapterNum || '').trim()
-  let nameStr = (title || '').trim()
-  if (!numStr) {
-    const match = nameStr.match(/^(第\s*[\d一二三四五六七八九十百千万]+\s*章)\s*(.*)$/)
-    if (match) {
-      numStr = match[1]
-      nameStr = match[2] || nameStr
-    }
-  } else {
-    nameStr = nameStr.replace(/^第\s*[\d一二三四五六七八九十百千万]+\s*章\s*/, '')
-  }
-
-  // 仅在第一页印制一份典雅的章首，翻过第一页后随纸卷走
-  const headerHtml = `
-    <div class="page-header">
-      ${numStr ? `<span class="chapter-mark">${numStr}</span>` : ''}
-      <h1 class="page-title">${nameStr}</h1>
-      <div class="chapter-divider" aria-hidden="true"></div>
-    </div>
-  `.trim()
-
-  measurer.innerHTML = headerHtml
-  const headerHeight = measurer.offsetHeight + 24
-
-  let currentUsedHeight = headerHeight
-  currentPageHtml.push(headerHtml)
+  let currentUsedHeight = 0
 
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i]
@@ -158,7 +126,6 @@ export function paginateHtml({
           // 开启新页
           currentPageHtml = []
           currentUsedHeight = 0
-          isFirstPage = false
 
           if (remainText) {
             // 剩余文字插到下一个待处理循环
@@ -173,7 +140,6 @@ export function paginateHtml({
             pages.push(currentPageHtml.join(''))
             currentPageHtml = []
             currentUsedHeight = 0
-            isFirstPage = false
           }
           currentPageHtml.push(`<p>${pText}</p>`)
           currentUsedHeight = pHeight
@@ -192,7 +158,6 @@ export function paginateHtml({
           pages.push(currentPageHtml.join(''))
           currentPageHtml = []
           currentUsedHeight = 0
-          isFirstPage = false
         }
         currentPageHtml.push(node.outerHTML)
         currentUsedHeight = nodeHeight

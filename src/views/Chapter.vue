@@ -118,10 +118,14 @@ onBeforeUnmount(() => {
   <article v-if="found" class="chapter">
     <reading-progress :progress="progress" />
 
+    <header class="chapter-head" :class="{ 'is-hidden': immersive }">
+      <span class="ch-num">{{ currentChapter?.num || '' }}</span>
+      <h1 class="ch-title">{{ chapterTitle.replace(/^第\s*\d+\s*章\s*/, '') }}</h1>
+    </header>
+
     <epub-reader
       ref="readerRef"
       :title="chapterTitle"
-      :chapter-num="currentChapter?.num || ''"
       :html="html"
       :theme-key="themeKey"
       :font-scale="scale"
