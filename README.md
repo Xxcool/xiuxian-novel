@@ -27,19 +27,19 @@
 <div align="center">
   <table>
     <tr>
-      <td width="50%" align="center">
-        <strong>📖 真实双面物理仿真卷折（番茄/七猫同款）</strong>
+      <td width="64%" align="center" valign="middle">
+        <strong>💻 Web 桌面端（沉浸大景 · 气魄磅礴）</strong>
         <br/><br/>
-        <img src="docs/screenshots/page-flip-simulation.png" width="360" alt="仿真物理翻页效果" />
+        <img src="docs/screenshots/web-preview.jpg" alt="Web 桌面端设计图" />
         <br/>
-        <sub>真实纸张拱起卷曲 · 背面微弱透字 · 折痕圆柱高光与漫反射软阴影</sub>
+        <sub>通栏大幅水墨山岚景图 · 顶栏朱文印章 · 双列优雅目录板</sub>
       </td>
-      <td width="50%" align="center">
-        <strong>🎛️ 现代沉浸排版与阅读设置</strong>
+      <td width="36%" align="center" valign="middle">
+        <strong>📱 H5 移动端（国风雅致 · 随身畅读）</strong>
         <br/><br/>
-        <img src="docs/screenshots/reader-settings.png" width="360" alt="阅读器设置面板" />
+        <img src="docs/screenshots/mobile-preview.jpg" alt="H5 移动端设计图" />
         <br/>
-        <sub>四种翻页模式 · 胶囊字号步进器 · 三套古典护眼主题 · 可视化行距图标</sub>
+        <sub>自适应掌上视口 · 流式竖排触控 · 独立沉浸 App 体验</sub>
       </td>
     </tr>
   </table>
