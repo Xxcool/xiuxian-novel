@@ -297,6 +297,11 @@ const currentFontFamilyLabel = computed(() => {
   background: #f4ede1;
   color: #302c27;
 }
+[data-theme-key='night'] .mode-pill.active {
+  background: #354556;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
 
 /* 3. 主题卡片网格 */
 .theme-grid {
@@ -343,8 +348,8 @@ const currentFontFamilyLabel = computed(() => {
   border-radius: 12px;
   gap: 6px;
 }
-:root[data-theme='night'] .line-height-tabs {
-  background: rgba(255, 255, 255, 0.06);
+[data-theme-key='night'] .line-height-tabs {
+  background: rgba(0, 0, 0, 0.25);
 }
 .lh-pill {
   flex: 1;
@@ -361,16 +366,16 @@ const currentFontFamilyLabel = computed(() => {
 .lh-pill:hover:not(.active) {
   background: rgba(0, 0, 0, 0.03);
 }
-:root[data-theme='night'] .lh-pill:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.04);
+[data-theme-key='night'] .lh-pill:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
 }
 .lh-pill.active {
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
-:root[data-theme='night'] .lh-pill.active {
-  background: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+[data-theme-key='night'] .lh-pill.active {
+  background: #354556;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .lh-icon {
@@ -400,7 +405,7 @@ const currentFontFamilyLabel = computed(() => {
 .lh-pill.active .lh-bar {
   background: #111111;
 }
-:root[data-theme='night'] .lh-pill.active .lh-bar {
+[data-theme-key='night'] .lh-pill.active .lh-bar {
   background: #ffffff;
 }
 

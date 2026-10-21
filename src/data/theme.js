@@ -1,12 +1,12 @@
 // 阅读主题单一来源：外壳、EPUB 正文和首页景图共用同一个 key。
 export const THEME_LIST = [
-  { key: 'night', name: '月下', bg: '#111D26', text: '#e7e1d5', desc: '深夜沉浸', accent: '#c9ad75', accentText: '#17202b', heroTint: 'rgba(10, 19, 30, .08)' },
+  { key: 'night', name: '月下', bg: '#1e2630', text: '#d5dbe1', desc: '深夜护眼', accent: '#c9ad75', accentText: '#17202b', heroTint: 'rgba(15, 23, 32, .12)' },
   { key: 'warm', name: '暖白', bg: '#f8f7f2', text: '#24352f', desc: '清爽书房', accent: '#27533f', accentText: '#fffdf5', heroTint: 'rgba(225, 230, 211, .39)' },
   { key: 'paper', name: '宣纸', bg: '#f7f1e7', text: '#302c27', desc: '温和护眼', accent: '#a44334', accentText: '#fffaf4', heroTint: 'rgba(237, 216, 189, .45)' },
 ]
 const SHELL = {
   // seal：朱砂印章色。深色底上提亮保证对比，浅色主题共用同一档朱砂。
-  night: { bgElev: '#1a2b36', textSoft: '#b5b4ad', border: '#31404c', borderStrong: '#4a5a66', shadow: 'rgba(0, 0, 0, .22)', shadowLg: 'rgba(0, 0, 0, .38)', directory: 'rgba(18, 29, 41, .91)', seal: '#c8543f' },
+  night: { bgElev: '#26323e', textSoft: '#96a4b1', border: '#354352', borderStrong: '#4a5b6d', shadow: 'rgba(0, 0, 0, .28)', shadowLg: 'rgba(0, 0, 0, .45)', directory: 'rgba(30, 38, 48, .94)', seal: '#c8543f' },
   warm: { bgElev: '#fffefa', textSoft: '#697a70', border: '#d9e1d8', borderStrong: '#bfcfc1', shadow: 'rgba(36, 60, 46, .07)', shadowLg: 'rgba(36, 60, 46, .13)', directory: 'rgba(252, 253, 247, .91)', seal: '#a44334' },
   paper: { bgElev: '#fffbf4', textSoft: '#766c62', border: '#e4d8c9', borderStrong: '#d0bfa9', shadow: 'rgba(55, 40, 29, .07)', shadowLg: 'rgba(55, 40, 29, .14)', directory: 'rgba(251, 245, 234, .91)', seal: '#a44334' },
 }
