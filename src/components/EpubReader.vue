@@ -2,11 +2,9 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { PageFlip } from 'page-flip'
 import { paginateHtml } from '../utils/dom-paginator'
-import { getTheme } from '../data/theme'
 
 const props = defineProps({
   title: { type: String, required: true },
-  chapterNum: { type: String, default: '' },
   author: { type: String, default: '佚名' },
   html: { type: String, required: true },
   themeKey: { type: String, default: 'night' }, // night | warm | paper
@@ -27,11 +25,20 @@ const pages = ref([])
 const currentPageIndex = ref(0)
 const atEnd = ref(false)
 const atStart = ref(true)
+const isTouch = ref(false)
 
 let pageFlipInstance = null
 let ro = null
 let initToken = 0
-let lastTapTime = 0
+
+// 检测是否为触控移动端（手机/平板）
+function checkIsTouch() {
+  if (typeof window === 'undefined') return false
+  return (
+    ('ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)) &&
+    window.innerWidth <= 1024
+  )
+}
 
 // 翻页箭头状态与提示
 const nextLabel = computed(() => (atEnd.value && props.nextSlug ? '»' : '›'))
@@ -39,32 +46,48 @@ const prevLabel = computed(() => (atStart.value && props.prevSlug ? '«' : '‹'
 const nextDisabled = computed(() => atEnd.value && !props.nextSlug)
 const prevDisabled = computed(() => atStart.value && !props.prevSlug)
 
-// 往后翻（右下角仿真卷页，末页跳下一章）
+// 往后翻（移动端调用物理翻页，Web 桌面端直接平滑切页）
 function goNext() {
   if (atEnd.value && props.nextSlug) {
     emit('navigate', props.nextSlug)
     return
   }
-  if (pageFlipInstance) {
+  if (isTouch.value && pageFlipInstance) {
     try {
       pageFlipInstance.flipNext('bottom')
     } catch (e) {
       /* noop */
     }
+  } else {
+    if (currentPageIndex.value < pages.value.length - 1) {
+      currentPageIndex.value++
+      atStart.value = false
+      atEnd.value = currentPageIndex.value >= pages.value.length - 1
+      emit('page', { page: currentPageIndex.value + 1, total: pages.value.length })
+      emit('progress', Math.round(((currentPageIndex.value + 1) / pages.value.length) * 100))
+    }
   }
 }
 
-// 往前翻（左下角仿真卷页，首页跳上一章）
+// 往前翻（移动端调用物理翻页，Web 桌面端直接平滑切页）
 function goPrev() {
   if (atStart.value && props.prevSlug) {
     emit('navigate', props.prevSlug)
     return
   }
-  if (pageFlipInstance) {
+  if (isTouch.value && pageFlipInstance) {
     try {
       pageFlipInstance.flipPrev('bottom')
     } catch (e) {
       /* noop */
+    }
+  } else {
+    if (currentPageIndex.value > 0) {
+      currentPageIndex.value--
+      atStart.value = currentPageIndex.value === 0
+      atEnd.value = false
+      emit('page', { page: currentPageIndex.value + 1, total: pages.value.length })
+      emit('progress', Math.round(((currentPageIndex.value + 1) / pages.value.length) * 100))
     }
   }
 }
@@ -79,12 +102,17 @@ function onKey(e) {
   }
 }
 
-function handleCenterTap(e) {
+// 点击区域响应：左侧 25% 上一页，右侧 25% 下一页，中间 50% 切换沉浸菜单
+function handleContainerClick(e) {
   if (!containerRef.value) return
   const rect = containerRef.value.getBoundingClientRect()
   const x = e.clientX - rect.left
   const w = rect.width
-  if (x > w * EDGE_RATIO && x < w * (1 - EDGE_RATIO)) {
+  if (x < w * EDGE_RATIO) {
+    goPrev()
+  } else if (x > w * (1 - EDGE_RATIO)) {
+    goNext()
+  } else {
     emit('toggle-ui')
   }
 }
@@ -116,13 +144,12 @@ async function renderBook() {
   await nextTick()
   if (my !== initToken) return
 
+  isTouch.value = checkIsTouch()
   const containerW = containerRef.value.clientWidth || 360
   const containerH = containerRef.value.clientHeight || 620
 
-  // 1. 采用高精度流式 DOM 分页算法将章节切为标准纸页
+  // 1. 采用高精度流式 DOM 分页算法将章节切为标准纸页（无内页重复标题与标签）
   const pageList = paginateHtml({
-    title: props.title,
-    chapterNum: props.chapterNum,
     html: props.html,
     width: containerW,
     height: containerH,
@@ -147,40 +174,42 @@ async function renderBook() {
   if (my !== initToken) return
 
   try {
-    // 2. 挂载 StPageFlip 真实物理翻页引擎
-    pageFlipInstance = new PageFlip(bookRef.value, {
-      width: containerW,
-      height: containerH,
-      size: 'fixed',
-      minWidth: 280,
-      maxWidth: 1200,
-      minHeight: 380,
-      maxHeight: 1600,
-      drawShadow: true,
-      maxShadowOpacity: 0.55,
-      showCover: false,
-      usePortrait: true, // 竖屏单页模式
-      flippingTime: 480, // 番茄/七猫同款柔和纸张翻折手感
-      swipeDistance: 20,
-      useMouseEvents: true,
-      mobileScrollSupport: false, // 触控由物理引擎接管
-      showPageCorners: true, // 角落微翘指引
-      disableFlipByClick: false, // 允许边缘点击翻页
-    })
+    if (isTouch.value && bookRef.value) {
+      // 2. 移动端/触屏：挂载 StPageFlip 物理仿真翻页引擎（禁用鼠标事件，仅响应触摸拖拽）
+      pageFlipInstance = new PageFlip(bookRef.value, {
+        width: containerW,
+        height: containerH,
+        size: 'fixed',
+        minWidth: 240,
+        maxWidth: 1600,
+        minHeight: 320,
+        maxHeight: 2400,
+        drawShadow: true,
+        maxShadowOpacity: 0.5,
+        showCover: false,
+        usePortrait: true, // 竖屏单页模式
+        flippingTime: 480, // 柔和纸张手感
+        swipeDistance: 25,
+        useMouseEvents: false, // 彻底禁用鼠标物理卷页，避免鼠标移动引起翘角误触
+        mobileScrollSupport: false,
+        showPageCorners: true,
+        disableFlipByClick: false,
+      })
 
-    const pageElements = bookRef.value.querySelectorAll('.flip-page')
-    pageFlipInstance.loadFromHTML(pageElements)
+      const pageElements = bookRef.value.querySelectorAll('.flip-page')
+      pageFlipInstance.loadFromHTML(pageElements)
 
-    // 翻页事件回调
-    pageFlipInstance.on('flip', (e) => {
-      const idx = e.data
-      currentPageIndex.value = idx
-      atStart.value = idx === 0
-      atEnd.value = idx >= pages.value.length - 1
+      // 翻页事件回调
+      pageFlipInstance.on('flip', (e) => {
+        const idx = e.data
+        currentPageIndex.value = idx
+        atStart.value = idx === 0
+        atEnd.value = idx >= pages.value.length - 1
 
-      emit('page', { page: idx + 1, total: pages.value.length })
-      emit('progress', Math.round(((idx + 1) / pages.value.length) * 100))
-    })
+        emit('page', { page: idx + 1, total: pages.value.length })
+        emit('progress', Math.round(((idx + 1) / pages.value.length) * 100))
+      })
+    }
 
     // 首次进度上报
     emit('page', { page: 1, total: pages.value.length })
@@ -216,9 +245,9 @@ onMounted(() => {
 
 onBeforeUnmount(cleanup)
 
-// 章节切换、字号调整、行距调整 → 重新流式测算并初始化物理翻页
+// 章节切换、字号调整、行距调整 → 重新测算并装载
 watch(
-  () => [props.title, props.chapterNum, props.html, props.fontScale, props.lineHeight],
+  () => [props.title, props.html, props.fontScale, props.lineHeight],
   () => {
     renderBook()
   }
@@ -231,10 +260,10 @@ defineExpose({ goNext, goPrev })
   <div
     class="flip-reader-container"
     ref="containerRef"
-    @click="handleCenterTap"
+    @click="handleContainerClick"
   >
-    <!-- StPageFlip 原生物理翻页容器（文字印在纸上、双面透字、露底下一页） -->
-    <div class="flip-book" ref="bookRef">
+    <!-- 1. 移动端/触屏：StPageFlip 物理仿真翻页（手指拖拽整屏卷起露底） -->
+    <div v-if="isTouch" class="flip-book" ref="bookRef">
       <div
         v-for="(pageHtml, idx) in pages"
         :key="idx"
@@ -254,12 +283,31 @@ defineExpose({ goNext, goPrev })
       </div>
     </div>
 
+    <!-- 2. Web 桌面端：纯净平滑切页（鼠标在正文上移动完全无任何翘角与翻折干扰） -->
+    <div v-else class="desktop-reader-view">
+      <transition name="page-fade" mode="out-in">
+        <div
+          :key="currentPageIndex"
+          class="page-inner desktop-inner"
+        >
+          <div
+            class="page-body"
+            v-html="pages[currentPageIndex] || ''"
+            :style="{
+              fontSize: `calc(18px * ${fontScale})`,
+              lineHeight: String(lineHeight),
+            }"
+          ></div>
+        </div>
+      </transition>
+    </div>
+
     <!-- 加载中排版指示器 -->
     <div v-if="loading" class="flip-loading">
       <span>正在排版…</span>
     </div>
 
-    <!-- 底部悬浮上一页 / 下一页翻页按钮 -->
+    <!-- 悬浮翻页按钮（桌面端可见） -->
     <div class="flip-page-nav" :class="{ 'is-hidden': immersive }">
       <button
         class="flip-nav-btn"
@@ -298,16 +346,43 @@ defineExpose({ goNext, goPrev })
   height: 100%;
   margin: 0 auto;
 }
-/* 物理翻页容器：每一页都是真实的实体纸张，背景纯净无多余色差 */
+/* 移动端物理翻页容器：每一页都是真实的实体纸张，纯粹底色 */
 .flip-page {
   background-color: var(--bg);
   color: var(--text);
   overflow: hidden;
 }
+
+/* Web 桌面端视图：居中通高，鼠标自由移动不触发卷折 */
+.desktop-reader-view {
+  width: 100%;
+  height: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+.desktop-inner {
+  height: 100%;
+  cursor: default;
+}
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateX(8px);
+}
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
 .page-inner {
   width: 100%;
   height: 100%;
-  padding: clamp(30px, 5.5vh, 52px) clamp(20px, 5.5vw, 48px);
+  padding: clamp(20px, 4.5vh, 40px) clamp(20px, 5.5vw, 48px);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -320,10 +395,6 @@ defineExpose({ goNext, goPrev })
   word-break: break-word;
   overflow: hidden;
 }
-.page-body :deep(.page-header) {
-  margin-bottom: 22px;
-  text-align: center;
-}
 .page-body :deep(.page-chapter-fin) {
   height: 100%;
   display: flex;
@@ -332,43 +403,6 @@ defineExpose({ goNext, goPrev })
   color: var(--text-soft);
   font-size: 1.1em;
   letter-spacing: 4px;
-  opacity: 0.7;
-}
-.page-body :deep(.chapter-mark) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 0.88em;
-  color: var(--accent);
-  margin-bottom: 8px;
-  letter-spacing: 2px;
-  font-weight: 500;
-}
-.page-body :deep(.chapter-mark)::before,
-.page-body :deep(.chapter-mark)::after {
-  content: '';
-  display: inline-block;
-  width: 28px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent));
-}
-.page-body :deep(.chapter-mark)::after {
-  transform: rotate(180deg);
-}
-.page-body :deep(h1.page-title) {
-  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
-  font-weight: 700;
-  color: var(--text);
-  margin: 0 0 12px;
-  letter-spacing: 0.02em;
-  line-height: 1.35;
-}
-.page-body :deep(.chapter-divider) {
-  width: 44px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  margin: 0 auto;
   opacity: 0.7;
 }
 .page-body :deep(p) {
