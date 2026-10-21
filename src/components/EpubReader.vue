@@ -333,12 +333,15 @@ defineExpose({ goNext, goPrev })
 .flip-reader-container {
   position: relative;
   width: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
   height: 100%;
-  min-height: 100%;
   background: var(--bg);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  display: flex;
+  flex-direction: column;
 }
 .flip-book {
   position: relative;
@@ -382,18 +385,22 @@ defineExpose({ goNext, goPrev })
 .page-inner {
   width: 100%;
   height: 100%;
-  padding: clamp(20px, 4.5vh, 40px) clamp(20px, 5.5vw, 48px);
+  padding: 16px clamp(18px, 5.5vw, 44px) 24px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 30%, transparent) transparent;
 }
 .page-body {
   flex: 1;
   font-family: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
   text-align: left;
   word-break: break-word;
-  overflow: hidden;
 }
 .page-body :deep(.page-chapter-fin) {
   height: 100%;

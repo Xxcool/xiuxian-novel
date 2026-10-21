@@ -129,7 +129,8 @@ body:has(.chapter) .app-footer {
   height: 100%;
   min-height: 100%;
   margin: 0;
-  padding: 0;
+  padding: 0 0 54px;
+  box-sizing: border-box;
   border: 0;
   border-radius: 0;
   background: var(--bg);
@@ -234,7 +235,10 @@ body:has(.chapter) .app-footer {
   .mobile-back, .mobile-toc { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--text); font-size: 31px; cursor: pointer; }
   .mobile-toc { font-size: 26px; }
   .app-main { width: 100%; padding-bottom: 0; }
-  .app-main:has(.chapter) { height: 100dvh; padding: 0; }
+  .app-main:has(.chapter) {
+    height: calc(100dvh - 60px);
+    padding: 0;
+  }
   .home { border-right: 0; border-left: 0; border-radius: 0; }
   .home-hero { min-height: 440px; padding: 54px 25px 32px; background-position: 58% center; }
   .hero-copy { width: min(100%, 350px); }
@@ -246,9 +250,17 @@ body:has(.chapter) .app-footer {
   .directory-total { font-size: 11px; }
   .chapter-tabs button { min-width: 95px; }
   .chapter-grid { grid-template-columns: 1fr; }
-  .chapter { min-height: 100dvh; height: 100dvh; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .chapter {
+    min-height: 100%;
+    height: 100%;
+    padding: 0 0 calc(56px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
   .chapter-head {
-    margin: 8px 0 4px;
+    margin: 12px 0 6px;
     gap: 4px;
   }
   .chapter-head .ch-num {
@@ -290,5 +302,14 @@ body:has(.chapter) .app-footer {
   .mobile-reader-controls small { margin-top: 3px; color: var(--text); font-size: 10px; }
   .mobile-reader-progress { color: var(--text); font-family: var(--serif); font-size: 13px; white-space: nowrap; }
   .app-footer { display: none; }
+}
+
+/* 沉浸模式：顶底栏隐藏时，主视口与阅读区满屏展开 */
+.app-nav.is-hidden ~ .app-main:has(.chapter),
+body:has(.app-nav.is-hidden) .app-main:has(.chapter) {
+  height: 100dvh;
+}
+body:has(.app-nav.is-hidden) .chapter {
+  padding-bottom: 0;
 }
 @media (max-width: 380px) { .directory-total { display: none; } }

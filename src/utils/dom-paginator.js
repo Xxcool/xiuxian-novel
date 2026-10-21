@@ -65,10 +65,11 @@ export function paginateHtml({
 }) {
   if (typeof document === 'undefined') return [html]
 
-  const PADDING_V = Math.max(20, Math.min(44, Math.round(height * 0.05)))
-  const PADDING_H = Math.max(20, Math.min(52, Math.round(width * 0.055)))
+  const PADDING_V_TOP = 16
+  const PADDING_V_BOTTOM = 28 // 底部安全缓冲，确保最后一行绝不贴底或被压住
+  const PADDING_H = Math.max(18, Math.min(48, Math.round(width * 0.055)))
   const contentWidth = Math.max(200, width - PADDING_H * 2)
-  const contentHeight = Math.max(260, height - PADDING_V * 2)
+  const contentHeight = Math.max(200, height - PADDING_V_TOP - PADDING_V_BOTTOM)
 
   // 创建不可见的离屏测量容器
   const measurer = document.createElement('div')
