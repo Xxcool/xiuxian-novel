@@ -21,7 +21,7 @@ blockquote {
   margin: 1.1em 0;
   opacity: 0.82;
 }
-hr { border: none; border-top: 1px solid rgba(128,128,128,0.25); margin: 1.8em 0; }
+hr { display: none !important; }
 table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.92em; }
 th, td { border: 1px solid rgba(128,128,128,0.3); padding: 6px 10px; }
 a { text-decoration: none; }
