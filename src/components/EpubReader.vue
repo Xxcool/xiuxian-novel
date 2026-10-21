@@ -10,6 +10,7 @@ const props = defineProps({
   themeKey: { type: String, default: 'night' }, // night | warm | paper
   fontScale: { type: Number, default: 1 }, // 0.875 ~ 1.25
   lineHeight: { type: Number, default: 1.9 }, // 1.6 ~ 2.3
+  flipMode: { type: String, default: 'flip' }, // flip | cover | slide | none
   nextSlug: { type: String, default: '' },
   prevSlug: { type: String, default: '' },
   immersive: { type: Boolean, default: false },
@@ -26,10 +27,13 @@ const currentPageIndex = ref(0)
 const atEnd = ref(false)
 const atStart = ref(true)
 const isTouch = ref(false)
+const direction = ref('next') // next | prev
 
 let pageFlipInstance = null
 let ro = null
 let initToken = 0
+let touchStartX = 0
+let touchStartY = 0
 
 // 检测是否为移动触控端
 function checkIsTouch() {
@@ -46,13 +50,22 @@ const prevLabel = computed(() => (atStart.value && props.prevSlug ? '«' : '‹'
 const nextDisabled = computed(() => atEnd.value && !props.nextSlug)
 const prevDisabled = computed(() => atStart.value && !props.prevSlug)
 
+// 动态过渡动画名称
+const transitionName = computed(() => {
+  if (props.flipMode === 'none') return ''
+  if (props.flipMode === 'slide') return `slide-${direction.value}`
+  if (props.flipMode === 'cover') return `cover-${direction.value}`
+  return 'fade'
+})
+
 // 往后翻
 function goNext() {
   if (atEnd.value && props.nextSlug) {
     emit('navigate', props.nextSlug)
     return
   }
-  if (isTouch.value && pageFlipInstance) {
+  direction.value = 'next'
+  if (isTouch.value && props.flipMode === 'flip' && pageFlipInstance) {
     try {
       pageFlipInstance.flipNext('bottom')
     } catch (e) {
@@ -75,7 +88,8 @@ function goPrev() {
     emit('navigate', props.prevSlug)
     return
   }
-  if (isTouch.value && pageFlipInstance) {
+  direction.value = 'prev'
+  if (isTouch.value && props.flipMode === 'flip' && pageFlipInstance) {
     try {
       pageFlipInstance.flipPrev('bottom')
     } catch (e) {
@@ -117,7 +131,32 @@ function handleContainerClick(e) {
   }
 }
 
-// 安全销毁原生 PageFlip 与清空挂载点，避免与 Vue DOM diff 发生冲突
+// 触摸手势响应（在平移、覆盖、无动画模式下支持左右滑动翻页）
+function handleTouchStart(e) {
+  if (props.flipMode === 'flip' && isTouch.value) return
+  if (e.touches && e.touches.length > 0) {
+    touchStartX = e.touches[0].clientX
+    touchStartY = e.touches[0].clientY
+  }
+}
+
+function handleTouchEnd(e) {
+  if (props.flipMode === 'flip' && isTouch.value) return
+  if (e.changedTouches && e.changedTouches.length > 0) {
+    const dx = e.changedTouches[0].clientX - touchStartX
+    const dy = e.changedTouches[0].clientY - touchStartY
+    // 明显的横向手势触发翻页（避免干扰纵向正文滚动）
+    if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      if (dx < 0) {
+        goNext()
+      } else {
+        goPrev()
+      }
+    }
+  }
+}
+
+// 安全销毁原生 PageFlip 与清空挂载点
 function cleanup() {
   window.removeEventListener('keydown', onKey)
   if (pageFlipInstance) {
@@ -133,7 +172,7 @@ function cleanup() {
   }
 }
 
-// 移动端安全挂载原生 PageFlip（原生 DOM 隔离，杜绝 Vue VNode 追踪异常）
+// 移动端安全挂载原生 PageFlip（原生 DOM 隔离）
 function mountPageFlipDOM(pageList, width, height) {
   if (!flipMountRef.value) return
 
@@ -171,7 +210,7 @@ function mountPageFlipDOM(pageList, width, height) {
     usePortrait: true,
     flippingTime: 480,
     swipeDistance: 25,
-    useMouseEvents: false, // 彻底禁用鼠标物理卷页，避免鼠标移动引起翘角误触
+    useMouseEvents: false,
     mobileScrollSupport: false,
     showPageCorners: true,
     disableFlipByClick: false,
@@ -190,7 +229,6 @@ function mountPageFlipDOM(pageList, width, height) {
     emit('progress', Math.round(((idx + 1) / pages.value.length) * 100))
   })
 
-  // 如果原本处于某一页，恢复翻到该页
   if (currentPageIndex.value > 0) {
     try {
       pageFlipInstance.flip(currentPageIndex.value)
@@ -236,7 +274,6 @@ async function renderBook() {
   if (my !== initToken) return
   pages.value = pageList
 
-  // 保持当前阅读页码在安全区间
   const validIndex = Math.min(currentPageIndex.value, pageList.length - 1)
   currentPageIndex.value = Math.max(0, validIndex)
   atStart.value = currentPageIndex.value === 0
@@ -246,12 +283,11 @@ async function renderBook() {
   if (my !== initToken) return
 
   try {
-    if (isTouch.value) {
-      // 2. 移动端/触屏：原生隔离挂载 StPageFlip
+    if (isTouch.value && props.flipMode === 'flip') {
+      // 仅在移动端 + 仿真模式下启用原生 PageFlip
       mountPageFlipDOM(pageList, containerW, containerH)
     }
 
-    // 进度上报
     emit('page', { page: currentPageIndex.value + 1, total: pageList.length })
     emit('progress', Math.round(((currentPageIndex.value + 1) / pageList.length) * 100))
     emit('ready')
@@ -269,7 +305,6 @@ async function renderBook() {
 onMounted(() => {
   renderBook()
 
-  // 视口大小变化监听
   let lastW = 0
   let lastH = 0
   ro = new ResizeObserver((entries) => {
@@ -295,9 +330,9 @@ onBeforeUnmount(() => {
   cleanup()
 })
 
-// 章节切换、字号调整、行距调整 → 重新测算并装载
+// 章节切换、字号、行距、翻页模式切换 → 重新自适应装载
 watch(
-  () => [props.title, props.html, props.fontScale, props.lineHeight],
+  () => [props.title, props.html, props.fontScale, props.lineHeight, props.flipMode],
   () => {
     renderBook()
   }
@@ -311,34 +346,44 @@ defineExpose({ goNext, goPrev })
     class="flip-reader-container"
     ref="containerRef"
     @click="handleContainerClick"
+    @touchstart="handleTouchStart"
+    @touchend="handleTouchEnd"
   >
-    <!-- 1. 移动端原生隔离挂载点（黑盒 DOM 隔离，彻底防止 Vue insertBefore/nextSibling 异常） -->
+    <!-- 1. 移动端【仿真】物理卷折挂载点（仅在移动端 + 仿真模式下呈现） -->
     <div
-      v-show="isTouch"
+      v-show="isTouch && flipMode === 'flip'"
       class="flip-mount-stage"
       ref="flipMountRef"
     ></div>
 
-    <!-- 2. Web 桌面端纯 Vue 响应式视图（鼠标移动绝无翘角翻折干扰） -->
-    <div v-show="!isTouch" class="desktop-reader-view">
-      <div class="page-inner desktop-inner">
+    <!-- 2. 【平移/覆盖/无动画】及桌面端纯净视图 -->
+    <div
+      v-show="!isTouch || flipMode !== 'flip'"
+      class="desktop-reader-view"
+    >
+      <transition :name="transitionName" mode="out-in">
         <div
-          class="page-body"
-          v-html="pages[currentPageIndex] || ''"
-          :style="{
-            fontSize: `calc(18px * ${fontScale})`,
-            lineHeight: String(lineHeight),
-          }"
-        ></div>
-      </div>
+          :key="currentPageIndex"
+          class="page-inner desktop-inner"
+        >
+          <div
+            class="page-body"
+            v-html="pages[currentPageIndex] || ''"
+            :style="{
+              fontSize: `calc(18px * ${fontScale})`,
+              lineHeight: String(lineHeight),
+            }"
+          ></div>
+        </div>
+      </transition>
     </div>
 
-    <!-- 加载中排版指示器 -->
+    <!-- 加载中指示器 -->
     <div v-if="loading" class="flip-loading">
       <span>正在排版…</span>
     </div>
 
-    <!-- 悬浮翻页按钮（桌面端可见） -->
+    <!-- 悬浮翻页按钮 -->
     <div class="flip-page-nav" :class="{ 'is-hidden': immersive }">
       <button
         class="flip-nav-btn"
@@ -375,7 +420,7 @@ defineExpose({ goNext, goPrev })
   flex-direction: column;
 }
 
-/* 移动端原生挂载点 */
+/* 移动端仿真挂载点 */
 .flip-mount-stage {
   position: relative;
   width: 100%;
@@ -433,7 +478,7 @@ defineExpose({ goNext, goPrev })
   opacity: 0.82;
 }
 
-/* Web 桌面端视图 */
+/* 核心阅读视图（平移/覆盖/无动画/桌面端） */
 .desktop-reader-view {
   width: 100%;
   height: 100%;
@@ -487,6 +532,66 @@ defineExpose({ goNext, goPrev })
   padding: 4px 0 4px 14px;
   margin: 1em 0;
   opacity: 0.82;
+}
+
+/* 1. 平移模式过渡动画 (Slide) */
+.slide-next-enter-active,
+.slide-next-leave-active,
+.slide-prev-enter-active,
+.slide-prev-leave-active {
+  transition: transform 0.22s ease-out, opacity 0.22s ease-out;
+}
+.slide-next-enter-from {
+  transform: translateX(100%);
+  opacity: 0.7;
+}
+.slide-next-leave-to {
+  transform: translateX(-100%);
+  opacity: 0.7;
+}
+.slide-prev-enter-from {
+  transform: translateX(-100%);
+  opacity: 0.7;
+}
+.slide-prev-leave-to {
+  transform: translateX(100%);
+  opacity: 0.7;
+}
+
+/* 2. 覆盖模式过渡动画 (Cover) */
+.cover-next-enter-active,
+.cover-next-leave-active,
+.cover-prev-enter-active,
+.cover-prev-leave-active {
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.24s ease;
+}
+.cover-next-enter-from {
+  transform: translateX(100%);
+  box-shadow: -6px 0 20px rgba(0, 0, 0, 0.22);
+  z-index: 2;
+}
+.cover-next-leave-to {
+  transform: scale(0.96);
+  opacity: 0.6;
+}
+.cover-prev-enter-from {
+  transform: scale(0.96);
+  opacity: 0.6;
+}
+.cover-prev-leave-to {
+  transform: translateX(100%);
+  box-shadow: -6px 0 20px rgba(0, 0, 0, 0.22);
+  z-index: 2;
+}
+
+/* 3. 柔和平滑淡入过渡 (Fade) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.16s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .flip-loading {

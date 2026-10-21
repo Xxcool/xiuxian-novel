@@ -1,30 +1,116 @@
 <script setup>
+import { computed } from 'vue'
 import { NDrawer, NDrawerContent } from 'naive-ui'
 import { useTheme } from '../composables/useTheme'
-import { useReaderSettings, SCALE_LABELS } from '../composables/useReaderSettings'
+import {
+  useReaderSettings,
+  FLIP_MODES,
+  FONT_FAMILIES,
+} from '../composables/useReaderSettings'
 import { THEME_LIST, LINE_HEIGHT_OPTIONS, getLineHeightLabel } from '../data/theme'
 
 defineProps({ show: { type: Boolean, default: false } })
 const emit = defineEmits(['update:show'])
 
 const { themeKey, setTheme } = useTheme()
-const { label, setScale, lineHeight, setLineHeight } = useReaderSettings()
-const scaleKeys = Object.keys(SCALE_LABELS)
+const {
+  fontSize,
+  decreaseFontSize,
+  increaseFontSize,
+  canDecrease,
+  canIncrease,
+  flipMode,
+  setFlipMode,
+  fontFamily,
+  setFontFamily,
+  lineHeight,
+  setLineHeight,
+} = useReaderSettings()
+
+function cycleFontFamily() {
+  const idx = FONT_FAMILIES.findIndex((f) => f.key === fontFamily.value)
+  const nextIdx = (idx + 1) % FONT_FAMILIES.length
+  setFontFamily(FONT_FAMILIES[nextIdx].key)
+}
+
+const currentFontFamilyLabel = computed(() => {
+  return (FONT_FAMILIES.find((f) => f.key === fontFamily.value) || FONT_FAMILIES[0]).label
+})
 </script>
 
 <template>
-  <!-- 底部弹出阅读设置：移动端不挤占顶栏，也不与翻页手势冲突（仅点击齿轮触发） -->
+  <!-- 底部弹出阅读设置：高品质小说阅读器排版设置 -->
   <n-drawer
     :show="show"
     placement="bottom"
-    :height="420"
+    :height="470"
     @update:show="emit('update:show', $event)"
   >
     <n-drawer-content title="阅读设置" :native-scrollbar="false" closable>
       <div class="settings">
+        <!-- 1. 字号调节（胶囊步进器 A- 24 A+）与字体 -->
         <section class="set-group">
           <div class="set-head">
-            <span class="set-label">主题</span>
+            <span class="set-label">字号</span>
+          </div>
+          <div class="font-controls-row">
+            <div class="font-stepper">
+              <button
+                type="button"
+                class="stepper-btn"
+                :disabled="!canDecrease"
+                @click="decreaseFontSize"
+                aria-label="缩小字号"
+              >
+                A-
+              </button>
+              <span class="stepper-val">{{ fontSize }}</span>
+              <button
+                type="button"
+                class="stepper-btn"
+                :disabled="!canIncrease"
+                @click="increaseFontSize"
+                aria-label="放大字号"
+              >
+                A+
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="font-family-btn"
+              @click="cycleFontFamily"
+              title="切换正文字体"
+            >
+              <span>{{ currentFontFamilyLabel }}</span>
+              <span class="arrow">›</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- 2. 翻页模式选择（仿真、覆盖、平移、无动画） -->
+        <section class="set-group">
+          <div class="set-head">
+            <span class="set-label">翻页效果</span>
+          </div>
+          <div class="flip-mode-tabs">
+            <button
+              v-for="m in FLIP_MODES"
+              :key="m.key"
+              type="button"
+              class="mode-pill"
+              :class="{ active: flipMode === m.key }"
+              @click="setFlipMode(m.key)"
+            >
+              {{ m.label }}
+            </button>
+          </div>
+        </section>
+
+        <!-- 3. 背景与主题 -->
+        <section class="set-group">
+          <div class="set-head">
+            <span class="set-label">背景颜色</span>
             <span class="set-value">{{
               (THEME_LIST.find((t) => t.key === themeKey) || {}).name
             }}</span>
@@ -44,24 +130,7 @@ const scaleKeys = Object.keys(SCALE_LABELS)
           </div>
         </section>
 
-        <section class="set-group">
-          <div class="set-head">
-            <span class="set-label">字号</span>
-            <span class="set-value">{{ label }}</span>
-          </div>
-          <div class="seg">
-            <button
-              v-for="k in scaleKeys"
-              :key="k"
-              class="seg-item"
-              :class="{ active: label === k }"
-              @click="setScale(k)"
-            >
-              {{ k }}
-            </button>
-          </div>
-        </section>
-
+        <!-- 4. 行距调节 -->
         <section class="set-group">
           <div class="set-head">
             <span class="set-label">行距</span>
@@ -88,24 +157,141 @@ const scaleKeys = Object.keys(SCALE_LABELS)
 .settings {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 6px 2px 14px;
+  gap: 20px;
+  padding: 4px 2px 16px;
 }
 .set-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .set-label {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--text);
 }
 .set-value {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-soft);
 }
+
+/* 1. 字号胶囊行 */
+.font-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.font-stepper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 0 4px;
+}
+.stepper-btn {
+  width: 52px;
+  height: 36px;
+  border-radius: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.stepper-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stepper-val {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.font-family-btn {
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 13.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.font-family-btn:hover {
+  border-color: var(--accent);
+}
+.font-family-btn .arrow {
+  color: var(--text-soft);
+  font-size: 16px;
+}
+
+/* 2. 翻页模式胶囊组 */
+.flip-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 4px;
+}
+.mode-pill {
+  flex: 1;
+  height: 38px;
+  border-radius: 19px;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-family: var(--serif);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.mode-pill:hover:not(.active) {
+  color: var(--text);
+}
+.mode-pill.active {
+  background: #ffffff;
+  color: #111111;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+[data-theme-key='warm'] .mode-pill.active {
+  background: #fdfaf2;
+  color: #24352f;
+}
+[data-theme-key='paper'] .mode-pill.active {
+  background: #f4ede1;
+  color: #302c27;
+}
+
+/* 3. 主题卡片网格 */
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -117,13 +303,13 @@ const scaleKeys = Object.keys(SCALE_LABELS)
   align-items: center;
   justify-content: center;
   gap: 3px;
-  padding: 12px 4px;
+  padding: 10px 4px;
   border-radius: 12px;
   border: 1.5px solid var(--border);
   cursor: pointer;
   transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease),
     border-color 0.16s var(--ease);
-  min-height: 64px;
+  min-height: 58px;
 }
 .theme-card:hover {
   transform: translateY(-1px);
@@ -141,20 +327,22 @@ const scaleKeys = Object.keys(SCALE_LABELS)
   box-shadow: 0 0 0 2px var(--accent);
   border-color: var(--accent);
 }
+
+/* 4. 行距分段按钮 */
 .seg {
   display: flex;
-  background: color-mix(in srgb, var(--bg) 60%, var(--bg-elev));
+  background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
 }
 .seg-item {
   flex: 1;
-  padding: 11px 0;
+  padding: 10px 0;
   border: none;
   background: transparent;
   color: var(--text-soft);
-  font-size: 14px;
+  font-size: 13.5px;
   cursor: pointer;
   transition: background 0.16s var(--ease), color 0.16s var(--ease);
 }
