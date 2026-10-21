@@ -118,14 +118,10 @@ onBeforeUnmount(() => {
   <article v-if="found" class="chapter">
     <reading-progress :progress="progress" />
 
-    <header class="chapter-head" :class="{ 'is-hidden': immersive }">
-      <span class="ch-num">{{ currentChapter?.num || '' }}</span>
-      <h1 class="ch-title">{{ chapterTitle.replace(/^第\s*\d+\s*章\s*/, '') }}</h1>
-    </header>
-
     <epub-reader
       ref="readerRef"
       :title="chapterTitle"
+      :chapter-num="currentChapter?.num || ''"
       :html="html"
       :theme-key="themeKey"
       :font-scale="scale"
@@ -169,13 +165,19 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.chapter-head {
-  transition: opacity var(--dur-normal) var(--ease),
-    transform var(--dur-normal) var(--ease);
-}
-.chapter-head.is-hidden {
-  opacity: 0;
-  transform: translateY(-6px);
+.immersive-hint {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--text-soft);
+  font-size: 12px;
+  background: color-mix(in srgb, var(--panel-bg) 80%, transparent);
+  backdrop-filter: blur(8px);
+  padding: 4px 14px;
+  border-radius: 20px;
   pointer-events: none;
+  opacity: 0.6;
+  z-index: 50;
 }
 </style>
