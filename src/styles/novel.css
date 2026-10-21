@@ -110,17 +110,57 @@ body { background: var(--bg); }
 .chapter-list-wrap.is-drawer .chapter-grid .card-title { font-size: 13.5px; }
 .chapter-list-wrap.is-drawer .chapter-grid .card-arrow { font-size: 19px; }
 
-/* Web 正文：章节标题、翻页区和 EPUB 书页各有独立的空间。 */
-.app-main:has(.chapter) { padding: 0 0 36px; }
-.chapter { position: relative; max-width: none; min-height: calc(100dvh - 160px); margin: 0; padding: 36px clamp(40px, 6vw, 110px) 88px; border: 0; border-radius: 0; background: var(--reader-bg); }
-.chapter-head { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0 0 22px; padding: 0; border: 0; text-align: center; }
-.chapter-head .ch-num { display: flex; align-items: center; gap: 18px; color: var(--accent); font-family: var(--serif); font-size: 17px; letter-spacing: .1em; }
-.chapter-head .ch-num::before, .chapter-head .ch-num::after { content: ''; display: block; width: 52px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent)); }
-.chapter-head .ch-num::after { transform: rotate(180deg); }
-.chapter-head .ch-title { color: var(--text); font-family: var(--serif); font-size: clamp(1.9rem, 3vw, 2.5rem); font-weight: 500; letter-spacing: .07em; }
-.epub-reader { max-width: 940px; height: min(66dvh, 660px); min-height: 430px; margin: 0 auto; }
-.epub-reader .epub-page-nav { display: none; }
-.chapter-nav-wrap { position: absolute; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; min-height: 76px; margin: 0; padding: 0 42px; border-top: 1px solid var(--border); }
+/* Web 正文：通栏整页仿真物理翻书，背景纯净，沉浸式交互 */
+.app-main:has(.chapter) {
+  width: 100%;
+  height: calc(100dvh - 58px);
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+.app-main:has(.chapter) + .app-footer,
+body:has(.chapter) .app-footer {
+  display: none !important;
+}
+.chapter {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chapter-nav-wrap {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  height: 54px;
+  margin: 0;
+  padding: 0 42px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 30;
+  transition: transform var(--dur-normal) var(--ease), opacity var(--dur-normal) var(--ease);
+}
+.chapter-nav-wrap.is-hidden {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
 .chapter-nav-wrap .chapter-nav { display: flex; justify-content: space-between; width: 100%; max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .chapter-nav-wrap .chapter-nav .nav-btn.center { display: none; }
 .chapter-nav-wrap .chapter-nav .nav-btn { color: var(--accent); font-family: var(--serif); font-size: 15px; }
@@ -147,6 +187,7 @@ body { background: var(--bg); }
   .mobile-back, .mobile-toc { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--text); font-size: 31px; cursor: pointer; }
   .mobile-toc { font-size: 26px; }
   .app-main { width: 100%; padding-bottom: 0; }
+  .app-main:has(.chapter) { height: 100dvh; padding: 0; }
   .home { border-right: 0; border-left: 0; border-radius: 0; }
   .home-hero { min-height: 440px; padding: 54px 25px 32px; background-position: 58% center; }
   .hero-copy { width: min(100%, 350px); }
@@ -158,17 +199,33 @@ body { background: var(--bg); }
   .directory-total { font-size: 11px; }
   .chapter-tabs button { min-width: 95px; }
   .chapter-grid { grid-template-columns: 1fr; }
-  .chapter { min-height: calc(100dvh - 60px); padding: 20px 24px calc(78px + env(safe-area-inset-bottom)); border: 0; border-radius: 0; box-shadow: none; }
-  .chapter-head { gap: 8px; margin: 0 0 20px; }
-  .chapter-head .ch-num { font-size: 15px; }
-  .chapter-head .ch-num::before, .chapter-head .ch-num::after { width: 28px; }
-  .chapter-head .ch-title { font-size: clamp(1.55rem, 6vw, 2rem); }
-  .epub-reader { height: calc(100dvh - 215px - env(safe-area-inset-bottom)); min-height: 320px; }
+  .chapter { min-height: 100dvh; height: 100dvh; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
   .chapter-nav-wrap { display: none; }
-  .mobile-reader-controls { position: fixed; z-index: 40; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: space-between; height: calc(66px + env(safe-area-inset-bottom)); padding: 0 15px env(safe-area-inset-bottom); border-top: 1px solid var(--border); background: var(--panel-bg); }
-  .mobile-reader-controls a, .mobile-reader-controls button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 45px; min-height: 45px; border: 0; background: transparent; color: var(--accent); font-family: var(--serif); font-size: 26px; line-height: 1; text-decoration: none; cursor: pointer; }
-  .mobile-reader-controls small { margin-top: 4px; color: var(--text); font-size: 10px; }
+  .mobile-reader-controls {
+    position: fixed;
+    z-index: 40;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: calc(56px + env(safe-area-inset-bottom));
+    padding: 0 15px env(safe-area-inset-bottom);
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: transform var(--dur-normal) var(--ease), opacity var(--dur-normal) var(--ease);
+  }
+  .mobile-reader-controls.is-hidden {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .mobile-reader-controls a, .mobile-reader-controls button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 45px; min-height: 45px; border: 0; background: transparent; color: var(--accent); font-family: var(--serif); font-size: 24px; line-height: 1; text-decoration: none; cursor: pointer; }
+  .mobile-reader-controls small { margin-top: 3px; color: var(--text); font-size: 10px; }
   .mobile-reader-progress { color: var(--text); font-family: var(--serif); font-size: 13px; white-space: nowrap; }
   .app-footer { display: none; }
 }
-@media (max-width: 380px) { .chapter { padding-right: 18px; padding-left: 18px; } .directory-total { display: none; } }
+@media (max-width: 380px) { .directory-total { display: none; } }

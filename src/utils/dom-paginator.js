@@ -50,6 +50,7 @@ function splitParagraphToFit(pText, measurer, availableHeight) {
  * 分页核心函数
  * @param {Object} options
  * @param {string} options.title 章节标题
+ * @param {string} [options.chapterNum] 章号（如 第 1 章）
  * @param {string} options.html Markdown解析后的 HTML
  * @param {number} options.width 容器宽度 (px)
  * @param {number} options.height 容器高度 (px)
@@ -59,6 +60,7 @@ function splitParagraphToFit(pText, measurer, availableHeight) {
  */
 export function paginateHtml({
   title,
+  chapterNum = '',
   html,
   width,
   height,
@@ -67,8 +69,8 @@ export function paginateHtml({
 }) {
   if (typeof document === 'undefined') return [html]
 
-  const PADDING_V = 44 // 上下各 44px
-  const PADDING_H = Math.max(20, Math.min(48, Math.round(width * 0.065)))
+  const PADDING_V = Math.max(30, Math.min(52, Math.round(height * 0.055)))
+  const PADDING_H = Math.max(20, Math.min(48, Math.round(width * 0.055)))
   const contentWidth = Math.max(200, width - PADDING_H * 2)
   const contentHeight = Math.max(300, height - PADDING_V * 2)
 
@@ -79,7 +81,7 @@ export function paginateHtml({
     top: -9999px;
     left: -9999px;
     width: ${contentWidth}px;
-    font-family: 'Songti SC', 'STSong', 'Noto Serif CJK SC', serif;
+    font-family: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
     font-size: calc(18px * ${fontScale});
     line-height: ${lineHeight};
     text-align: left;
@@ -99,10 +101,30 @@ export function paginateHtml({
   let currentPageHtml = []
   let isFirstPage = true
 
-  // 第一页预留标题高度
-  const headerHtml = `<div class="page-header"><span class="chapter-mark">—— 章节正文 ——</span><h1 class="page-title">${title}</h1></div>`
+  // 解析优雅的章首：章号与章名分离
+  let numStr = (chapterNum || '').trim()
+  let nameStr = (title || '').trim()
+  if (!numStr) {
+    const match = nameStr.match(/^(第\s*[\d一二三四五六七八九十百千万]+\s*章)\s*(.*)$/)
+    if (match) {
+      numStr = match[1]
+      nameStr = match[2] || nameStr
+    }
+  } else {
+    nameStr = nameStr.replace(/^第\s*[\d一二三四五六七八九十百千万]+\s*章\s*/, '')
+  }
+
+  // 仅在第一页印制一份典雅的章首，翻过第一页后随纸卷走
+  const headerHtml = `
+    <div class="page-header">
+      ${numStr ? `<span class="chapter-mark">${numStr}</span>` : ''}
+      <h1 class="page-title">${nameStr}</h1>
+      <div class="chapter-divider" aria-hidden="true"></div>
+    </div>
+  `.trim()
+
   measurer.innerHTML = headerHtml
-  const headerHeight = measurer.offsetHeight + 18
+  const headerHeight = measurer.offsetHeight + 24
 
   let currentUsedHeight = headerHeight
   currentPageHtml.push(headerHtml)

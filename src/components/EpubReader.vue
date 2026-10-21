@@ -6,6 +6,7 @@ import { getTheme } from '../data/theme'
 
 const props = defineProps({
   title: { type: String, required: true },
+  chapterNum: { type: String, default: '' },
   author: { type: String, default: '佚名' },
   html: { type: String, required: true },
   themeKey: { type: String, default: 'night' }, // night | warm | paper
@@ -121,6 +122,7 @@ async function renderBook() {
   // 1. 采用高精度流式 DOM 分页算法将章节切为标准纸页
   const pageList = paginateHtml({
     title: props.title,
+    chapterNum: props.chapterNum,
     html: props.html,
     width: containerW,
     height: containerH,
@@ -216,7 +218,7 @@ onBeforeUnmount(cleanup)
 
 // 章节切换、字号调整、行距调整 → 重新流式测算并初始化物理翻页
 watch(
-  () => [props.html, props.fontScale, props.lineHeight],
+  () => [props.title, props.chapterNum, props.html, props.fontScale, props.lineHeight],
   () => {
     renderBook()
   }
@@ -238,10 +240,6 @@ defineExpose({ goNext, goPrev })
         :key="idx"
         class="flip-page"
         data-density="soft"
-        :style="{
-          backgroundColor: 'var(--bg)',
-          color: 'var(--text)',
-        }"
       >
         <div class="page-inner">
           <div
@@ -252,10 +250,6 @@ defineExpose({ goNext, goPrev })
               lineHeight: String(lineHeight),
             }"
           ></div>
-          <div class="page-footer">
-            <span class="footer-chapter">{{ title }}</span>
-            <span class="footer-number">{{ idx + 1 }} / {{ pages.length }}</span>
-          </div>
         </div>
       </div>
     </div>
@@ -291,8 +285,8 @@ defineExpose({ goNext, goPrev })
 .flip-reader-container {
   position: relative;
   width: 100%;
-  height: 74vh;
-  min-height: 480px;
+  height: 100%;
+  min-height: 100%;
   background: var(--bg);
   overflow: hidden;
   user-select: none;
@@ -304,21 +298,20 @@ defineExpose({ goNext, goPrev })
   height: 100%;
   margin: 0 auto;
 }
-/* 物理翻页容器：每一页都是真实的实体纸张 */
+/* 物理翻页容器：每一页都是真实的实体纸张，背景纯净无多余色差 */
 .flip-page {
   background-color: var(--bg);
   color: var(--text);
-  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.03);
   overflow: hidden;
 }
 .page-inner {
   width: 100%;
   height: 100%;
-  padding: 38px clamp(18px, 6vw, 42px) 24px;
+  padding: clamp(30px, 5.5vh, 52px) clamp(20px, 5.5vw, 48px);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 .page-body {
   flex: 1;
@@ -328,7 +321,7 @@ defineExpose({ goNext, goPrev })
   overflow: hidden;
 }
 .page-body :deep(.page-header) {
-  margin-bottom: 24px;
+  margin-bottom: 22px;
   text-align: center;
 }
 .page-body :deep(.page-chapter-fin) {
@@ -342,18 +335,41 @@ defineExpose({ goNext, goPrev })
   opacity: 0.7;
 }
 .page-body :deep(.chapter-mark) {
-  display: block;
-  font-size: 0.85em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 0.88em;
   color: var(--accent);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   letter-spacing: 2px;
+  font-weight: 500;
+}
+.page-body :deep(.chapter-mark)::before,
+.page-body :deep(.chapter-mark)::after {
+  content: '';
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent));
+}
+.page-body :deep(.chapter-mark)::after {
+  transform: rotate(180deg);
 }
 .page-body :deep(h1.page-title) {
-  font-size: 1.55em;
+  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
   font-weight: 700;
   color: var(--text);
-  margin: 0;
-  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+.page-body :deep(.chapter-divider) {
+  width: 44px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin: 0 auto;
+  opacity: 0.7;
 }
 .page-body :deep(p) {
   margin: 0 0 1.25em;
@@ -364,17 +380,6 @@ defineExpose({ goNext, goPrev })
   padding: 4px 0 4px 14px;
   margin: 1em 0;
   opacity: 0.82;
-}
-.page-footer {
-  height: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  color: var(--text-soft);
-  opacity: 0.75;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
-  padding-top: 4px;
 }
 .flip-loading {
   position: absolute;
