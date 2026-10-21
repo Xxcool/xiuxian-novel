@@ -55,3 +55,33 @@ export function prefetchChapters(slugs) {
     )
   })
 }
+
+// 闲时后台全量预热（整本离线渐进调度）：
+// 不阻塞首屏，延后 3.5s 启动，利用 requestIdleCallback 分批平滑预取剩余章节。
+// 既避免了 110 个 chunk 并发抢占前台带宽，又在读者阅读几分钟内悄然完成全书离线缓存。
+export function idleWarmupAllChapters(chapterSlugs = []) {
+  if (typeof window === 'undefined' || !chapterSlugs.length) return
+
+  const schedule = typeof window.requestIdleCallback === 'function'
+    ? window.requestIdleCallback
+    : (cb) => setTimeout(cb, 1000)
+
+  // 延后启动，把宝贵的首屏渲染与字体/首图资源窗口 100% 留给前台
+  setTimeout(() => {
+    let index = 0
+    const BATCH_SIZE = 6
+
+    function pump() {
+      if (index >= chapterSlugs.length) return
+      const batch = chapterSlugs.slice(index, index + BATCH_SIZE)
+      prefetchChapters(batch)
+      index += BATCH_SIZE
+
+      if (index < chapterSlugs.length) {
+        schedule(() => setTimeout(pump, 600))
+      }
+    }
+
+    schedule(pump)
+  }, 3500)
+}

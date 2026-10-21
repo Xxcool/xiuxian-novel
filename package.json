@@ -10,15 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "vue-router": "^4.3.0",
-    "naive-ui": "^2.38.0",
-    "marked": "^12.0.0",
     "@likecoin/epub-ts": "^0.6.0",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "marked": "^12.0.0",
+    "naive-ui": "^2.38.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
-    "vite": "^5.2.0"
+    "vite": "^5.2.0",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-window": "^7.4.1"
   }
 }
