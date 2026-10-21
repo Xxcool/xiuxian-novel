@@ -16,7 +16,7 @@ import ReaderSettings from '../components/ReaderSettings.vue'
 const route = useRoute()
 const router = useRouter()
 const { themeKey } = useTheme()
-const { scale, lineHeight } = useReaderSettings()
+const { scale, lineHeight, flipMode } = useReaderSettings()
 const { immersive, toggle: toggleImmersive, exit: exitImmersive } = useImmersive()
 const { record, markRead } = useReadingProgress()
 
@@ -130,6 +130,7 @@ onBeforeUnmount(() => {
       :theme-key="themeKey"
       :font-scale="scale"
       :line-height="lineHeight"
+      :flip-mode="flipMode"
       :next-slug="neighbor.next?.slug || ''"
       :prev-slug="neighbor.prev?.slug || ''"
       :immersive="immersive"
