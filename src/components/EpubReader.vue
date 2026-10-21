@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import ePub from '@likecoin/epub-ts'
 import { buildEpub } from '../utils/epub-builder'
 import { getReaderTheme, getTheme, THEME_LIST } from '../data/theme'
+import { PageCurlEngine } from '../utils/page-curl'
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -20,77 +21,28 @@ const props = defineProps({
 const emit = defineEmits(['progress', 'page', 'ready', 'error', 'navigate', 'toggle-ui'])
 
 // 点击热区划分（占阅读区宽度比例）：
-//   左侧 EDGE_RATIO → 上一页
-//   右侧 EDGE_RATIO → 下一页
+//   左侧 EDGE_RATIO → 上一页（从左下角卷起翻页）
+//   右侧 EDGE_RATIO → 下一页（从右下角卷起翻页）
 //   中间区域        → 切换沉浸模式（隐藏/显示界面）
-// 中间区留宽是为了让读者能顺手唤出界面，同时两侧仍保有足够翻页面积，
-// 滑动翻页也始终可用，不会因为热区划分而失效。
 const EDGE_RATIO = 0.28
 
 const viewer = ref(null)
+const curlCanvasRef = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const atEnd = ref(false) // 当前是否已到本章最后一页
 const atStart = ref(true) // 当前是否已到本章第一页
+
 let book = null
 let rendition = null
 let ro = null
 let initToken = 0
 let swipeCleanup = null
-
-// 仿真平滑翻页与纸张阴影状态
-const dragOffset = ref(0) // 移动端横向拖拽位移
-const isDragging = ref(false) // 是否处于手指拖拽中
-const isAnimating = ref(false) // 是否处于翻页动效进行中
-const turnDirection = ref('next') // 翻页方向：'next' | 'prev'
-const animPhase = ref('') // '' | 'turning' | 'entering'
-
-// 动态计算阴影透明度（支持手指拖拽时动态跟随加深）
-const shadowLeftOpacity = computed(() => {
-  if (isDragging.value && dragOffset.value > 0) {
-    return Math.min(0.85, (dragOffset.value / 80) * 0.85)
-  }
-  return isAnimating.value && turnDirection.value === 'prev' ? 0.75 : 0
-})
-
-const shadowRightOpacity = computed(() => {
-  if (isDragging.value && dragOffset.value < 0) {
-    return Math.min(0.85, (Math.abs(dragOffset.value) / 80) * 0.85)
-  }
-  return isAnimating.value && turnDirection.value === 'next' ? 0.75 : 0
-})
-
-// 容器动态样式与类名：位移、出入场贝塞尔缓动与微缩放
-const viewerStyle = computed(() => {
-  if (isDragging.value) {
-    return {
-      transform: `translate3d(${dragOffset.value}px, 0, 0)`,
-      transition: 'none',
-    }
-  }
-  if (animPhase.value === 'turning') {
-    const dx = turnDirection.value === 'next' ? -26 : 26
-    return {
-      transform: `translate3d(${dx}px, 0, 0) scale(0.992)`,
-      transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
-      opacity: 0.9,
-    }
-  }
-  if (animPhase.value === 'entering') {
-    return {
-      transform: 'translate3d(0, 0, 0) scale(1)',
-      transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.22s ease-out',
-      opacity: 1,
-    }
-  }
-  return {
-    transform: 'translate3d(0, 0, 0)',
-    transition: 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
-  }
-})
+let curlEngine = null
 
 // EPUB 主题样式会按切换顺序追加，显式覆盖正文颜色可避免旧主题抢占优先级。
 function applyReaderColors(key) {
+  if (!rendition) return
   const { bg, text } = getTheme(key)
   rendition.themes.override('background', bg, true)
   rendition.themes.override('color', text, true)
@@ -102,8 +54,7 @@ const prevLabel = computed(() => (atStart.value && props.prevSlug ? '«' : '‹'
 const nextDisabled = computed(() => error.value || (atEnd.value && !props.nextSlug))
 const prevDisabled = computed(() => error.value || (atStart.value && !props.prevSlug))
 
-// 以库当前的真实定位为准判断边界，避免 relocated 异步更新与章节切换竞态
-// 导致的 atEnd/atStart 滞后（单章为独立 EPUB，atEnd=本章末页、atStart=本章首页）
+// 以库当前的真实定位为准判断边界
 function boundaryState() {
   if (rendition && typeof rendition.currentLocation === 'function') {
     const loc = rendition.currentLocation()
@@ -112,33 +63,28 @@ function boundaryState() {
   return { atStart: atStart.value, atEnd: atEnd.value }
 }
 
-// 仿真平滑翻页调度器（执行纸张出场微移 → rendition 翻页 → 纸张立体入场）
-function performTurn(dir, epubTurnFn) {
-  if (isAnimating.value) return
-  isAnimating.value = true
-  turnDirection.value = dir
-  animPhase.value = 'turning'
-
-  // 短暂微移出场后切页
-  setTimeout(() => {
-    try {
-      epubTurnFn()
-    } catch (e) {
-      /* noop */
-    }
-    // 次帧进入平滑归位阶段
-    requestAnimationFrame(() => {
-      animPhase.value = 'entering'
-      setTimeout(() => {
-        isAnimating.value = false
-        animPhase.value = ''
-        dragOffset.value = 0
-      }, 230)
-    })
-  }, 75)
+// 直接切页底层调度
+function stepNext() {
+  if (!rendition || error.value) return
+  const { atEnd: ae } = boundaryState()
+  if (ae && props.nextSlug) {
+    emit('navigate', props.nextSlug)
+    return
+  }
+  rendition.next()
 }
 
-// 统一的"往后翻"：未到末页→仿真滑页；到末页且有下一章→跳下一章
+function stepPrev() {
+  if (!rendition || error.value) return
+  const { atStart: as } = boundaryState()
+  if (as && props.prevSlug) {
+    emit('navigate', props.prevSlug)
+    return
+  }
+  rendition.prev()
+}
+
+// 播放番茄/七猫小说风格的完整仿真卷页动画（点击或按键触发）
 function goNext() {
   if (error.value || !rendition) return
   const { atEnd: ae } = boundaryState()
@@ -146,10 +92,15 @@ function goNext() {
     emit('navigate', props.nextSlug)
     return
   }
-  performTurn('next', () => rendition.next())
+  if (curlEngine) {
+    curlEngine.autoFlip('next', props.themeKey, {
+      onMidway: () => stepNext(),
+    })
+  } else {
+    stepNext()
+  }
 }
 
-// 统一的"往前翻"：未到首页→仿真滑页；到首页且有上一章→跳上一章
 function goPrev() {
   if (error.value || !rendition) return
   const { atStart: as } = boundaryState()
@@ -157,7 +108,13 @@ function goPrev() {
     emit('navigate', props.prevSlug)
     return
   }
-  performTurn('prev', () => rendition.prev())
+  if (curlEngine) {
+    curlEngine.autoFlip('prev', props.themeKey, {
+      onMidway: () => stepPrev(),
+    })
+  } else {
+    stepPrev()
+  }
 }
 
 function onKey(e) {
@@ -171,59 +128,66 @@ function onKey(e) {
   }
 }
 
-// 在 iframe 内文文档上统一接管两种手势（移动端、桌面端都可用）：
-// 1) 点击 / 轻触：按 x 坐标分左右半区翻页（仿真书交互：左半区上一页，右半区下一页）
-// 2) 横向滑动：左滑→下一页（末页跳下一章）、右滑→上一页（首页跳上一章），方向即仿真书手势
-// 说明：epub-ts 内置 Touch 管理器监听的是 iframe 外层容器，收不到 iframe 内 touch，
-// 故章节内滑动必须自己在 contentDocument 上监听；点击翻页也直接在 touchend 判定，
-// 不依赖移动端合成的 click 事件（在 srcdoc + sandbox 的 iframe 内某些浏览器不可靠）。
-// 注意：已通过 renderTo({ snap: false }) 关闭库内置滑动翻页，这里即为手势的唯一来源。
+// 在 iframe 内文文档上统一接管手势（支持手指拖拽逐渐卷起、松手惯性翻页或回弹、点击边缘卷页）
 function setupInteractions() {
   const iframe = viewer.value?.querySelector('iframe')
   const doc = iframe?.contentDocument
-  if (!doc) return // 极少数情况下文档尚未就绪，由调用处的 rAF 重试
+  if (!doc) return
+
   const pageWidth = () => iframe.clientWidth || doc.documentElement.clientWidth
   let x0 = 0
   let y0 = 0
   let t0 = 0
-  let lastTouchAction = 0 // 防触摸后合成 click 重复触发翻页
+  let isDragging = false
+  let dragDir = 'next'
+  let lastTouchAction = 0
 
-  // 左边缘上一页、右边缘下一页、中间区域切换沉浸模式
+  // 左右边缘轻触 → 播放完整右下角/左下角仿真卷页动画
   const handleTap = (x) => {
     const w = pageWidth()
     if (x < w * EDGE_RATIO) goPrev()
     else if (x > w * (1 - EDGE_RATIO)) goNext()
     else emit('toggle-ui')
   }
-  // 桌面端鼠标点击：按左右半区（触摸产生的动作后 500ms 内的合成 click 一律忽略）
+
+  // 桌面端鼠标点击（过滤触摸合成 click）
   const onClick = (e) => {
     if (error.value || !rendition) return
     if (Date.now() - lastTouchAction < 500) return
     handleTap(e.clientX)
   }
+
   const onStart = (e) => {
-    const t = e.touches ? e.touches[0] : e
+    if (!e.touches || error.value || !rendition) return
+    const t = e.touches[0]
     x0 = t.clientX
     y0 = t.clientY
     t0 = Date.now()
-    dragOffset.value = 0
-    isDragging.value = false
+    isDragging = false
+    dragDir = x0 > pageWidth() * 0.5 ? 'next' : 'prev'
   }
+
   const onMove = (e) => {
-    if (!e.touches || error.value || !rendition || isAnimating.value) return
+    if (!e.touches || error.value || !rendition) return
     const t = e.touches[0]
     const dx = t.clientX - x0
     const dy = t.clientY - y0
     const adx = Math.abs(dx)
     const ady = Math.abs(dy)
-    // 明确为横向拖拽（水平位移大于垂直位移）
-    if (adx > 10 && adx > ady * 1.2) {
-      isDragging.value = true
-      // 带阻尼的位移感，限制在 [-95, 95] 像素以内
-      const damp = 0.42
-      dragOffset.value = Math.max(-95, Math.min(95, dx * damp))
+
+    // 判定为横向滑动拖拽
+    if (adx > 12 && adx > ady * 1.15) {
+      if (!isDragging && curlEngine) {
+        isDragging = true
+        dragDir = dx < 0 ? 'next' : 'prev'
+        curlEngine.startDrag(t.clientX, t.clientY, dragDir, props.themeKey)
+      }
+      if (isDragging && curlEngine) {
+        curlEngine.dragTo(t.clientX, t.clientY)
+      }
     }
   }
+
   const onEnd = (e) => {
     if (error.value || !rendition) return
     const t = e.changedTouches ? e.changedTouches[0] : e
@@ -231,39 +195,39 @@ function setupInteractions() {
     const dy = t.clientY - y0
     const dt = Date.now() - t0
 
-    if (isDragging.value) {
-      isDragging.value = false
+    if (isDragging && curlEngine) {
+      isDragging = false
       lastTouchAction = Date.now()
-      if (dx < -25) {
-        goNext()
-      } else if (dx > 25) {
-        goPrev()
-      } else {
-        // 位移不足，弹性回弹归位
-        dragOffset.value = 0
-      }
+      curlEngine.releaseDrag({
+        onMidway: () => {
+          if (dragDir === 'next') stepNext()
+          else stepPrev()
+        },
+      })
       return
     }
 
-    if (dt > 1000) return // 超过 1s 视为长按/停顿，不翻页
+    if (dt > 1000) return // 超过 1s 视为长按，不翻页
     const adx = Math.abs(dx)
     const ady = Math.abs(dy)
-    if (adx >= 25 && adx > ady * 1.3) {
-      // 明确横向滑动 → 翻页 / 边界跳章
+
+    if (adx >= 28 && adx > ady * 1.3) {
+      // 快速划动
       lastTouchAction = Date.now()
       if (dx < 0) goNext()
       else goPrev()
     } else if (dt < 500 && adx < 12 && ady < 12) {
-      // 位移很小且时间短 → 视为轻触（tap），按起始 x 分左右半区翻页
+      // 轻触 tap
       lastTouchAction = Date.now()
       handleTap(x0)
     }
   }
+
   doc.addEventListener('click', onClick, { passive: true })
-  // touchstart 用 capture 阶段，确保即使其他监听调用了 stopPropagation 也能先抓到起点坐标
   doc.addEventListener('touchstart', onStart, { passive: true, capture: true })
   doc.addEventListener('touchmove', onMove, { passive: true })
   doc.addEventListener('touchend', onEnd, { passive: true })
+
   swipeCleanup = () => {
     doc.removeEventListener('click', onClick)
     doc.removeEventListener('touchstart', onStart)
@@ -272,13 +236,16 @@ function setupInteractions() {
   }
 }
 
-// 彻底销毁旧实例，避免章节切换时多个 iframe / rendition 叠加
+// 销毁旧实例，避免内存泄漏与事件叠加
 function cleanup() {
   window.removeEventListener('keydown', onKey)
   ro?.disconnect()
   ro = null
   swipeCleanup?.()
   swipeCleanup = null
+  curlEngine?.destroy()
+  curlEngine = null
+
   try {
     rendition?.destroy()
   } catch (e) {
@@ -319,45 +286,45 @@ async function init() {
     await book.ready
     if (my !== initToken) return
 
+    // 纯净挂载，禁止任何会破坏 iframe 宽度的外部复合变换
     rendition = book.renderTo(viewer.value, {
       width: viewer.value.clientWidth || '100%',
       height: viewer.value.clientHeight || '100%',
       spread: 'none',
       flow: 'paginated',
-      // 关闭库内置的滑动翻页（snap）：epub-ts 在 touch 设备上会自动启用一套
-      // Touch 管理器自己处理滑动切页，会与下方自己在 contentDocument 上挂的
-      // 手势抢事件，导致移动端滑动/点击翻页时灵时不灵甚至跳页。关掉后由我们
-      // 的 setupInteractions 统一接管所有手势，行为单一、可预测。
       snap: false,
-      // 开启 allow-scripts：epub-ts 会把内容渲染进 sandbox 的 srcdoc iframe，
-      // 其内部渲染/主题注入脚本需要 allow-scripts，否则浏览器拦截并报
-      // "Blocked script execution in 'about:srcdoc'"，翻页与主题也会失效
       allowScriptedContent: true,
     })
 
-    // 注册全部 5 套阅读器主题，按当前 themeKey 选择；字号/行高通过 override 动态注入
+    // 初始化番茄/七猫仿真卷页物理引擎
+    if (curlCanvasRef.value) {
+      curlEngine = new PageCurlEngine(curlCanvasRef.value)
+      curlEngine.resize(
+        viewer.value.clientWidth || viewer.value.offsetWidth || 360,
+        viewer.value.clientHeight || viewer.value.offsetHeight || 600
+      )
+    }
+
     THEME_LIST.forEach((t) =>
       rendition.themes.register(t.key, getReaderTheme(t.key))
     )
     rendition.themes.select(props.themeKey)
     applyReaderColors(props.themeKey)
+
     if (props.fontScale)
       rendition.themes.override('font-size', `${1.125 * props.fontScale}rem`)
     if (props.lineHeight)
-      // 优先级 true：覆盖 epub-builder 内置 READER_CSS 里 body 的 line-height: 1.9
       rendition.themes.override('line-height', String(props.lineHeight), true)
 
-    // 阅读进度与页码来自库自身定位；先注册再 display，确保首屏也收到页码。
     const onRelocated = (loc) => {
       const pct = loc?.start?.percentage
       if (typeof pct === 'number') emit('progress', Math.round(pct * 100))
       const displayed = loc?.start?.displayed
       if (displayed?.page && displayed?.total) emit('page', displayed)
-      // atEnd / atStart 由库直接给出；个别版本缺失时用整本百分比兜底
-      // （每章均为独立 EPUB，100% 即本章末页，0% 即首页）
       atEnd.value = loc?.atEnd ?? (typeof pct === 'number' && pct >= 0.999)
       atStart.value = loc?.atStart ?? (typeof pct === 'number' && pct <= 0.001)
     }
+
     rendition.on('relocated', onRelocated)
     await rendition.display()
     if (my !== initToken) return
@@ -365,18 +332,19 @@ async function init() {
     loading.value = false
     emit('ready')
 
-    // 正文内的点击翻页与横向滑动翻页，统一在 contentDocument 上接管，
-    // 见 setupInteractions()（移动端轻触/滑动、桌面端点击均支持）
-
     window.addEventListener('keydown', onKey)
     ro = new ResizeObserver(() => {
-      if (rendition && viewer.value) {
-        rendition.resize(viewer.value.clientWidth, viewer.value.clientHeight)
+      if (viewer.value) {
+        const vw = viewer.value.clientWidth
+        const vh = viewer.value.clientHeight
+        if (rendition && vw > 0 && vh > 0) {
+          rendition.resize(vw, vh)
+        }
+        curlEngine?.resize(vw, vh)
       }
     })
     ro.observe(viewer.value)
 
-    // iframe 文档就绪后挂载点击分屏翻页 + 边界滑动跳章（次帧重试一次以应对竞态）
     requestAnimationFrame(() => {
       if (my !== initToken) return
       setupInteractions()
@@ -393,7 +361,6 @@ async function init() {
 
 onMounted(init)
 
-// 章节切换：Chapter.vue 传入的 html 变化 → 销毁旧阅读器并重建
 watch(
   () => props.html,
   () => {
@@ -429,26 +396,12 @@ defineExpose({ goNext, goPrev })
 </script>
 
 <template>
-  <div class="epub-reader" :class="{ 'is-dragging': isDragging, 'is-animating': isAnimating }">
-    <!-- 纸张立体中缝与边缘微阴影（翻页或拖拽时浮现） -->
-    <div
-      class="page-shadow-edge left"
-      :style="{ opacity: shadowLeftOpacity }"
-      aria-hidden="true"
-    ></div>
-    <div
-      class="page-shadow-edge right"
-      :style="{ opacity: shadowRightOpacity }"
-      aria-hidden="true"
-    ></div>
+  <div class="epub-reader">
+    <!-- 番茄/七猫风格 仿真纸张卷页物理渲染画布（覆盖在正文上方，松手或点击自动卷折展开） -->
+    <canvas ref="curlCanvasRef" class="page-curl-canvas" aria-hidden="true"></canvas>
 
-    <!-- 正常渲染容器（支持平滑滑页、阻尼拖拽与弹性入场） -->
-    <div
-      ref="viewer"
-      class="epub-viewer"
-      :class="{ hidden: error }"
-      :style="viewerStyle"
-    ></div>
+    <!-- 真实正文渲染容器（纯净 100% 布局，无任何硬件加速位移污染，消除左侧字截断） -->
+    <div ref="viewer" class="epub-viewer" :class="{ hidden: error }"></div>
 
     <!-- 阅读器加载失败时回退到普通 HTML 滚动阅读，避免一直卡在“正在排版” -->
     <div
@@ -469,7 +422,7 @@ defineExpose({ goNext, goPrev })
       EPUB 阅读器加载失败，已切换为普通阅读模式
     </div>
 
-    <!-- 上一页 / 下一页：在边界时跳转到相邻章节（图标随状态变化） -->
+    <!-- 上一页 / 下一页：在边界时跳转到相邻章节 -->
     <div
       class="epub-page-nav"
       :class="{ disabled: error, 'is-hidden': immersive }"
@@ -503,43 +456,30 @@ defineExpose({ goNext, goPrev })
   background: transparent;
   overflow: hidden;
 }
+/* 物理仿真卷页层：覆盖在正文上方，事件穿透至下方 iframe 接管 */
+.page-curl-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 15;
+}
+/* 正文容器：纯净标准布局，绝不添加 transform/scale 以免破坏 iframe 列宽造成文字截断 */
 .epub-viewer {
+  position: relative;
   width: 100%;
   height: 100%;
   background: transparent;
-  will-change: transform, opacity;
+  z-index: 1;
 }
 .epub-viewer.hidden {
   display: none;
 }
 .epub-viewer :deep(iframe) {
   border: none;
-}
-/* 仿真纸张立体边缘阴影 */
-.page-shadow-edge {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 38px;
-  pointer-events: none;
-  z-index: 4;
-  transition: opacity 0.18s ease-out;
-}
-.page-shadow-edge.left {
-  left: 0;
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--shadow-lg, rgba(0, 0, 0, 0.32)) 80%, transparent),
-    transparent
-  );
-}
-.page-shadow-edge.right {
-  right: 0;
-  background: linear-gradient(
-    to left,
-    color-mix(in srgb, var(--shadow-lg, rgba(0, 0, 0, 0.32)) 80%, transparent),
-    transparent
-  );
+  display: block;
 }
 .reader-fallback {
   height: 100%;
@@ -569,7 +509,7 @@ defineExpose({ goNext, goPrev })
   color: var(--text-soft);
   font-size: 12px;
   box-shadow: 0 2px 10px var(--shadow);
-  z-index: 10;
+  z-index: 20;
 }
 .epub-page-nav {
   position: absolute;
@@ -577,7 +517,7 @@ defineExpose({ goNext, goPrev })
   right: 14px;
   display: flex;
   gap: 8px;
-  z-index: 5;
+  z-index: 25;
 }
 /* 移动端已有滑动翻页 + 边界跳章，悬浮箭头会遮挡正文，故隐藏 */
 @media (max-width: 768px) {
